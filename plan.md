@@ -132,11 +132,11 @@ class CoachAnswer(BaseModel):
 - [x] Handle each failure path explicitly: no results, rate limited, paywalled, timed out, retracted. Each returns a structured `SearchStatus` the supervisor can act on, never an exception that kills the run.
 
 ### Phase 4: Position mapping, debate and judgment (week 3)
-- [ ] **Position Mapper** groups findings into the actual positions in the literature. If the evidence clusters on one side, it marks `consensus` and skips the debate.
-- [ ] **Avoid false balance.** If the weaker side has only low or very-low grade evidence, the answer is `consensus`, not a 50/50 debate. Questions like "is creatine safe?" should not become debates.
-- [ ] **Advocates** (one per position) build the strongest case from finding records only. Any claim without a finding ID is rejected by the schema. One rebuttal round, enforced in the graph.
-- [ ] **Judge** weighs evidence quality, not rhetoric. It sees findings and grades, not just the arguments.
-- [ ] **Personalization through filtering:** findings whose study population doesn't match the user's profile are down-weighted, and the trace records which ones and why. No invented individual prescriptions.
+- [x] **Position Mapper** groups findings into the actual positions in the literature. If the evidence clusters on one side, it marks `consensus` and skips the debate.
+- [x] **Avoid false balance.** If the weaker side has only low or very-low grade evidence, the answer is `consensus`, not a 50/50 debate. Questions like "is creatine safe?" should not become debates.
+- [x] **Advocates** (one per position) build the strongest case from finding records only. Any claim without a finding ID is rejected by the schema. One rebuttal round, enforced in the graph.
+- [x] **Judge** weighs evidence quality, not rhetoric. It sees findings and grades, not just the arguments.
+- [x] **Personalization through filtering:** findings whose study population doesn't match the user's profile are down-weighted, and the trace records which ones and why. No invented individual prescriptions.
 
 ### Phase 5: Persist run state in Redis (week 3–4)
 - [ ] Write graph state after every node: run ID, plan, completed sub-questions, findings, positions, debate turns, cumulative token and dollar spend.

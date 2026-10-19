@@ -327,7 +327,7 @@ class ResearchResult(Record):
     status: SearchStatus
 
 
-# --- Positions, debate, verdict (used from Phase 4; defined now) ------------
+# --- Positions, debate, verdict ----------------------------------------------
 
 
 class Position(Record):
@@ -339,7 +339,11 @@ class Position(Record):
 
 class PositionMap(Record):
     status: EvidenceStatus
-    positions: list[Position] = Field(min_length=1)
+    positions: list[Position] = Field(min_length=1)  # leading position first; the sides worth debating
+    proposed_status: EvidenceStatus | None = None  # what the mapper model proposed, before the code rules
+    status_reasons: list[str] = Field(default_factory=list)  # how code set the status (false-balance rule)
+    set_aside: list[Position] = Field(default_factory=list)  # weak dissent: shown, never debated
+    unassigned: list[str] = Field(default_factory=list)  # finding ids the mapper put in no position
 
 
 class ArgumentClaim(Record):
@@ -361,13 +365,34 @@ class Argument(Record):
             raise ValueError(f"argument cites unknown finding ids: {sorted(unknown)}")
 
 
+class RejectedClaim(Record):
+    """An advocate claim that did not cite valid finding ids, kept for the trace."""
+
+    text: str
+    finding_ids: list[str] = Field(default_factory=list)
+    reason: str
+
+
+class DebateTurn(Record):
+    """One advocate's argument in one round: 1 = opening, 2 = the single rebuttal round."""
+
+    position: int  # 1-based index into PositionMap.positions ("P1", "P2", ...)
+    stance: str
+    round: Literal[1, 2]
+    argument: Argument | None = None  # None when the advocate failed or every claim was rejected
+    rejected_claims: list[RejectedClaim] = Field(default_factory=list)
+    error: str | None = None
+
+
 class Verdict(Record):
     status: EvidenceStatus
     recommendation: str
     confidence: Confidence
     rationale: str
-    positions: list[Position] = Field(min_length=1)
+    positions: list[Position] = Field(min_length=1)  # the recommended position first
     downweighted_findings: dict[str, str] = Field(default_factory=dict)  # finding id -> reason
+    confidence_cap: Confidence | None = None  # highest confidence the evidence allowed (code)
+    adjustments: list[str] = Field(default_factory=list)  # where code overrode the judge, and why
 
 
 # --- Final answer -----------------------------------------------------------

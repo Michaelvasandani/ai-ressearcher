@@ -12,6 +12,9 @@ import threading
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from backend.agents.advocate import ArgumentDraft
+from backend.agents.judge import JudgeDraft
+from backend.agents.mapper import MapDraft
 from backend.agents.researcher import ExtractionBatch, StudyExtraction
 from backend.agents.writer import WriterDraft
 from backend.llm import FakeLLM, LLMRequest
@@ -30,6 +33,11 @@ STUDY_TYPE: dict[str, str] = {
     "FIXTURE-0009": "rct",
     "FIXTURE-0010": "meta_analysis",
     "FIXTURE-0011": "cohort",
+    "FIXTURE-0012": "meta_analysis",
+    "FIXTURE-0013": "meta_analysis",
+    "FIXTURE-0016": "meta_analysis",
+    "FIXTURE-0018": "case_report",
+    "FIXTURE-0019": "animal",
 }
 POPULATION: dict[str, str] = {
     "FIXTURE-0001": "390 adults, mostly young untrained and recreationally trained men and women",
@@ -42,6 +50,14 @@ POPULATION: dict[str, str] = {
     "FIXTURE-0009": "40 overweight young men in an energy deficit",
     "FIXTURE-0010": "25 studies of trained and untrained adults",
     "FIXTURE-0011": "2066 adults aged 70-79",
+    "FIXTURE-0012": "394 adults across 15 trials",
+    "FIXTURE-0013": "1326 adults across 55 trials",
+    "FIXTURE-0014": "42 experienced lifters (24 men, 18 women)",
+    "FIXTURE-0015": "46 experienced lifters (26 men, 20 women)",
+    "FIXTURE-0016": "1212 healthy adults across 21 trials",
+    "FIXTURE-0017": "100 healthy adults (61 men, 39 women)",
+    "FIXTURE-0018": "one 24-year-old man",
+    "FIXTURE-0019": "rats",
 }
 _RECORD = re.compile(r'<record source_id="([^"]+)">')
 _FINDING = re.compile(r"^\[([^\]]+)\] \((\w+), grade (\w+)", re.M)
@@ -68,6 +84,36 @@ SUB_QUESTIONS: dict[str, dict[str, Any]] = {
         "question": "Does progressive overload volume increase muscle hypertrophy in a ladder-climbing model?",
         "rationale": "Mechanism.",
         "search_terms": ["rat ladder climbing hypertrophy"],
+    },
+    "failure_similar": {
+        "question": "Does training to momentary failure produce more muscle size than stopping short of failure?",
+        "rationale": "Core question.",
+        "search_terms": ["training momentary muscular failure muscle size", "repetitions in reserve muscle size"],
+    },
+    "failure_proximity": {
+        "question": "Do sets ending closer to failure produce larger muscle size gains in experienced lifters?",
+        "rationale": "Dose-response of proximity to failure.",
+        "search_terms": ["proximity to failure muscle size", "failure leg quadriceps cross-sectional area"],
+    },
+    "failure_rir": {
+        "question": "Does stopping two to three repetitions in reserve produce similar quadriceps size to failure in experienced lifters?",
+        "rationale": "The practical alternative to failure.",
+        "search_terms": ["repetitions in reserve experienced lifters"],
+    },
+    "creatine_safety": {
+        "question": "Does long-term creatine monohydrate supplementation harm renal health in healthy adults?",
+        "rationale": "Core safety question.",
+        "search_terms": ["creatine supplementation renal safety healthy adults", "creatine monohydrate adverse events placebo"],
+    },
+    "creatine_longterm": {
+        "question": "Does 12 months of creatine monohydrate affect liver enzymes and blood lipids?",
+        "rationale": "Long-term safety beyond renal health.",
+        "search_terms": ["creatine monohydrate liver enzymes blood lipids placebo"],
+    },
+    "creatine_reports": {
+        "question": "Are there case reports or animal studies of renal injury with creatine?",
+        "rationale": "Signals of harm.",
+        "search_terms": ["creatine renal injury case report", "creatine renal inflammation rats"],
     },
     "empty": {
         "question": "Does creatine timing relative to training change kidney function markers in lifters?",
@@ -164,6 +210,67 @@ def writer_response(
     return respond
 
 
+_SUPPORT = re.compile(r"^Its supporting findings: (.+?) \(evidence grade", re.M)
+WEAK_TYPES = frozenset({"animal", "in_vitro", "preprint", "case_report"})
+
+
+def findings_in(request: LLMRequest[Any]) -> list[tuple[str, str, str]]:
+    """(id, study_type, grade) of every finding rendered in a synthesis or writer prompt."""
+    return _FINDING.findall(request.user)
+
+
+def mapper_response(
+    status: str = "consensus", split: Callable[[str, str], int] | None = None
+) -> Callable[[LLMRequest[Any]], MapDraft]:
+    """Mapper response. `split(finding_id, study_type)` -> position number (0 = unassigned);
+    by default every finding except animal / in-vitro / preprint work goes in one position."""
+
+    def default(fid: str, st: str) -> int:
+        return 0 if st in ("animal", "in_vitro", "preprint") else 1
+
+    pick = split or default
+
+    def respond(request: LLMRequest[Any]) -> MapDraft:
+        groups: dict[int, list[str]] = {}
+        for fid, st, _ in findings_in(request):
+            if (k := pick(fid, st)) > 0:
+                groups.setdefault(k, []).append(fid)
+        if not groups:
+            groups = {1: [findings_in(request)[0][0]]}
+        return MapDraft(
+            positions=[
+                {"stance": f"Stance {k}", "supporting_findings": ids, "best_counterargument": f"Against stance {k}."}
+                for k, ids in sorted(groups.items())
+            ],
+            status=status,  # type: ignore[arg-type]
+            rationale="Grouped by the answer each finding supports.",
+        )
+
+    return respond
+
+
+def advocate_response(extra_claims: list[dict[str, Any]] | None = None) -> Callable[[LLMRequest[Any]], ArgumentDraft]:
+    """Advocate response: one claim per supporting finding of its own position (+ `extra_claims`)."""
+
+    def respond(request: LLMRequest[Any]) -> ArgumentDraft:
+        m = _SUPPORT.search(request.user)
+        ids = [i.strip() for i in m.group(1).split(",")] if m else []
+        claims = [{"text": f"Finding {i} supports this position.", "finding_ids": [i]} for i in ids]
+        return ArgumentDraft(claims=claims + list(extra_claims or []))
+
+    return respond
+
+
+def judge_response(recommended: int = 1, status: str = "consensus", confidence: str = "high") -> JudgeDraft:
+    return JudgeDraft(
+        recommended_position=recommended,
+        status=status,  # type: ignore[arg-type]
+        confidence=confidence,  # type: ignore[arg-type]
+        recommendation="Follow the position the strongest findings support.",
+        rationale="The higher-grade, more consistent findings decide it.",
+    )
+
+
 BAD_WRITER_DRAFT = {
     # Every position cites an unknown id -> WriterError("no position backed by a known finding").
     "status": "consensus",
@@ -186,6 +293,9 @@ def fake_llm(search: FixtureSearchTool, sub_questions: Iterable[str] = ("volume"
         "intake": INTAKE,
         "planner": plan(*sub_questions),
         "researcher": extractor(search.records),
+        "position_mapper": mapper_response(),
+        "advocate": advocate_response(),
+        "judge": judge_response(),
         "writer": writer_response(),
     }
     responses.update(over)

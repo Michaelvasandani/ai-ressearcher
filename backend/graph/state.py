@@ -18,8 +18,10 @@ from backend.graph.routing import Route
 from backend.graph.trace import TraceStep, append_steps
 from backend.schemas import (
     CoachAnswer,
+    DebateTurn,
     Finding,
     Intake,
+    Position,
     PositionMap,
     Record,
     ResearchPlan,
@@ -30,6 +32,7 @@ from backend.schemas import (
 )
 
 MAX_SEND_BACKS = 1  # the supervisor may send work back exactly once per run
+DEBATE_ROUNDS = 2  # opening arguments, then exactly one rebuttal round
 
 
 # --- Research ---------------------------------------------------------------
@@ -95,6 +98,24 @@ def merge_research(
     return out
 
 
+# --- Debate -----------------------------------------------------------------
+
+
+class AdvocateTask(Record):
+    """Payload of one advocate Send: one position, one round, its own allowance."""
+
+    run_id: str
+    round: Literal[1, 2]
+    position_no: int  # 1-based index into PositionMap.positions
+    position: Position
+    intake: Intake
+    findings: list[Finding]
+    downweighted: dict[str, str] = Field(default_factory=dict)
+    opponents: list[DebateTurn] = Field(default_factory=list)  # round 2: the other sides' openings
+    route: Route
+    allowance: Allowance
+
+
 # --- Supervisor -------------------------------------------------------------
 
 DegradationKind = Literal[
@@ -108,6 +129,11 @@ DegradationKind = Literal[
     "population_mismatch",
     "abstract_only_evidence",
     "provenance_rejected",
+    "mapping_skipped",  # no position map: the writer works from findings alone
+    "debate_skipped",  # positions were not debated (budget)
+    "rebuttal_skipped",  # openings only: the rebuttal round could not run
+    "advocate_failed",  # an advocate produced no valid argument
+    "judge_skipped",  # no verdict: the writer works from the position map
 ]
 
 
@@ -206,13 +232,17 @@ class RunState(TypedDict, total=False):
     plan: ResearchPlan
     sub_questions: list[SubQuestion]  # the plan after the max_sub_questions cap
     research: Annotated[dict[str, ResearchRecord], merge_research]
-    position_map: PositionMap | None  # Phase 4
-    verdict: Verdict | None  # Phase 4
+    downweighted: dict[str, str]  # finding id -> why its population differs from the user
+    position_map: PositionMap | None
+    debate: Annotated[list[DebateTurn], operator.add]
+    verdict: Verdict | None
     draft_answer: CoachAnswer | None
     answer: CoachAnswer | None
 
     # Supervisor bookkeeping
     pending_tasks: list[ResearchTask]  # next researcher fan-out
+    pending_advocates: list[AdvocateTask]  # next advocate fan-out (one debate round)
+    debate_rounds: int  # rounds run so far; never more than DEBATE_ROUNDS
     reviews: Annotated[list[ReviewReport], operator.add]
     answer_reviews: Annotated[list[AnswerReview], operator.add]
     send_backs_used: int

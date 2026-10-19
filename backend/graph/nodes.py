@@ -443,7 +443,7 @@ class Nodes:
             output_summary=report.reason,
             output=report,
             status={"proceed": "ok", "send_back": "degraded", "fail": "failed"}[report.decision],
-            decision={"proceed": "writer", "send_back": f"researcher x{len(report.send_back_ids)}", "fail": "finalize"}[
+            decision={"proceed": "personalize", "send_back": f"researcher x{len(report.send_back_ids)}", "fail": "finalize"}[
                 report.decision
             ],
         )

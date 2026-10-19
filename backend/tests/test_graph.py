@@ -55,18 +55,19 @@ def test_happy_path_end_to_end(search_tool):
     assert r.outcome.status == "answered" and r.outcome.failure is None
     assert nodes(r) == [
         "intake", "planner", "dispatch", "researcher", "researcher", "researcher",
-        "review", "writer", "check_answer", "finalize",
+        "review", "personalize", "position_mapper", "judge", "writer", "check_answer", "finalize",
     ]
     assert [s.index for s in r.trace] == list(range(len(r.trace)))
     assert {s.sub_question_id for s in researcher_steps(r)} == {"sq1", "sq2", "sq3"}
 
-    # Routing by cost: Haiku extracts, Sonnet plans and writes, Opus is never used.
+    # Routing by cost: Haiku extracts, Sonnet plans, maps, judges and writes, Opus is never used.
     models = {req.agent: set() for req in llm.requests}
     for req in llm.requests:
         models[req.agent].add(req.model)
     assert models == {
         "intake": {config.HAIKU}, "planner": {config.SONNET},
-        "researcher": {config.HAIKU}, "writer": {config.SONNET},
+        "researcher": {config.HAIKU}, "position_mapper": {config.SONNET}, "judge": {config.SONNET},
+        "writer": {config.SONNET},
     }
 
     # The answer only cites findings the run produced; all from peer-reviewed human studies.
@@ -77,7 +78,7 @@ def test_happy_path_end_to_end(search_tool):
     # Spend adds up across the trace, the ledger and the state, including parallel branches.
     assert r.spend.cost_usd == pytest.approx(sum(s.cost_usd for s in r.trace))
     assert r.spend.cost_usd == pytest.approx(llm.total_cost_usd)
-    assert r.spend.llm_calls == len(llm.records) == 6
+    assert r.spend.llm_calls == len(llm.records) == 8
     assert r.spend.searches == sum(len(s.tool_calls) for s in researcher_steps(r)) == 5
     for s in researcher_steps(r):
         assert s.model == config.HAIKU and s.llm_calls and s.tool_calls and s.cost_usd > 0
@@ -296,15 +297,24 @@ def test_all_research_failing_ends_with_structured_failure(search_tool):
 # --- Writer failures --------------------------------------------------------------
 
 
-def test_writer_error_triggers_one_escalated_rewrite(search_tool):
-    llm = fake_llm(search_tool, writer=[BAD_WRITER_DRAFT, writer_response()])
+@pytest.mark.parametrize(
+    ("bad", "error", "synthesis"),
+    [
+        ("not json", "StructuredOutputError", True),  # with a verdict: invalid output
+        (BAD_WRITER_DRAFT, "WriterError", False),  # without one (mapper down): no position backed by a finding
+    ],
+)
+def test_writer_error_triggers_one_escalated_rewrite(search_tool, bad, error, synthesis):
+    over = {} if synthesis else {"position_mapper": LLMError("overloaded")}
+    llm = fake_llm(search_tool, writer=[bad, writer_response()], **over)
     r = run(llm, search_tool)
     writes = llm.calls_for("writer")
     assert [w.model for w in writes] == [config.SONNET, config.OPUS]
     assert "rejected by review" in writes[1].user and "rejected by review" not in writes[0].user
     assert [a.decision for a in r.answer_reviews] == ["rewrite", "accept"]
-    assert "WriterError" in r.answer_reviews[0].problems[0]
-    assert r.outcome.status == "answered" and r.answer is not None
+    assert error in r.answer_reviews[0].problems[0]
+    assert r.outcome.status == ("answered" if synthesis else "degraded") and r.answer is not None
+    assert (r.verdict is not None) == synthesis
     assert [s.node for s in r.trace][-5:] == ["writer", "check_answer", "writer", "check_answer", "finalize"]
 
 
@@ -317,7 +327,7 @@ def test_writer_failing_twice_fails_cleanly(search_tool):
 
 
 def test_writer_error_after_research_send_back_is_not_retried(search_tool):
-    llm = fake_llm(search_tool, ("volume", "frequency", "empty"), writer=BAD_WRITER_DRAFT)
+    llm = fake_llm(search_tool, ("volume", "frequency", "empty"), writer="not json")
     r = run(llm, search_tool)
     assert r.reviews[0].decision == "send_back"
     assert len(llm.calls_for("writer")) == 1
@@ -325,8 +335,12 @@ def test_writer_error_after_research_send_back_is_not_retried(search_tool):
 
 
 def test_answer_resting_on_preprints_is_rewritten(search_tool):
-    llm = fake_llm(search_tool, writer=[writer_response(only_types={"preprint"}), writer_response()])
+    # Without a verdict (mapper down) the writer picks its own citations; review catches preprint-only ones.
+    llm = fake_llm(
+        search_tool, writer=[writer_response(only_types={"preprint"}), writer_response()],
+        position_mapper=LLMError("overloaded"),
+    )
     r = run(llm, search_tool)
     assert "preprint" in r.answer_reviews[0].problems[0]
     assert [a.decision for a in r.answer_reviews] == ["rewrite", "accept"]
-    assert r.outcome.status == "answered"
+    assert r.outcome.status == "degraded" and degradation_kinds(r) == {"mapping_skipped"}

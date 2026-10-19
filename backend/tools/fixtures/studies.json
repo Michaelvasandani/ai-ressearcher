@@ -143,6 +143,108 @@
       "publication_types": ["Observational Study"],
       "retracted": false,
       "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0012",
+      "source_url": "https://example.org/fixtures/FIXTURE-0012",
+      "title": "Training to momentary muscular failure versus stopping short of failure for muscle size: a systematic review with pooled estimates",
+      "abstract": "Pooling 15 randomized studies (n=394), training to momentary muscular failure produced similar increases in muscle size to non-failure training when the number of sets was equated (standardized mean difference 0.12, 95% CI -0.06 to 0.30). Stopping one to three repetitions short of failure was as effective for muscle size.",
+      "full_text": "Results: Across 15 randomized studies (n=394), failure and non-failure training produced similar increases in muscle size (standardized mean difference 0.12, 95% CI -0.06 to 0.30; p=0.19). Results did not differ between experienced and inexperienced participants.",
+      "journal": "Fixture Journal of Strength Research",
+      "authors": ["Sorrel S", "Tansy T"],
+      "published": "2021-04-12",
+      "publication_types": ["Meta-Analysis", "Systematic Review"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0013",
+      "source_url": "https://example.org/fixtures/FIXTURE-0013",
+      "title": "Proximity to failure and muscle size: a dose-response regression of randomized studies",
+      "abstract": "Across 55 randomized studies (n=1326), muscle size gains increased as sets ended closer to momentary muscular failure: each repetition left in reserve was associated with a smaller increase in muscle size (standardized mean difference -0.04 per repetition in reserve). Strength gains were unrelated to proximity to failure.",
+      "full_text": "Results: In 55 randomized studies (n=1326), muscle size gains were larger when sets ended closer to failure (standardized mean difference -0.04 per repetition in reserve, 95% CI -0.07 to -0.01). Strength gains showed no relationship with proximity to failure.",
+      "journal": "Fixture Sports Medicine Reviews",
+      "authors": ["Umber U", "Vetch V"],
+      "published": "2023-08-30",
+      "publication_types": ["Meta-Analysis", "Systematic Review"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0014",
+      "source_url": "https://example.org/fixtures/FIXTURE-0014",
+      "title": "Failure versus two to three repetitions in reserve in experienced lifters: muscle size after 10 weeks",
+      "abstract": "Forty-two experienced lifters (24 men, 18 women) were randomized to sets taken to momentary failure or stopped with two to three repetitions in reserve for 10 weeks. Vastus lateralis cross-sectional area increased 6.1% with failure and 5.8% with repetitions in reserve (p=0.74).",
+      "full_text": "Methods: 42 experienced lifters (24 men, 18 women; at least 2 years of lifting) were randomized to failure or 2-3 repetitions in reserve, with equal sets, for 10 weeks. Results: Vastus lateralis cross-sectional area increased 6.1% with failure and 5.8% with repetitions in reserve (p=0.74).",
+      "journal": "Fixture European Journal of Exercise Science",
+      "authors": ["Willow W", "Yarrow Y"],
+      "published": "2022-02-14",
+      "publication_types": ["Randomized Controlled Trial"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0015",
+      "source_url": "https://example.org/fixtures/FIXTURE-0015",
+      "title": "Sets taken to failure produce larger quadriceps size increases than sets stopped short in experienced lifters",
+      "abstract": "Forty-six experienced lifters (26 men, 20 women) trained one leg to momentary failure and the other leg stopping three repetitions short for 8 weeks. Quadriceps cross-sectional area increased 7.4% in the failure leg versus 4.9% in the non-failure leg (p=0.01).",
+      "full_text": "Methods: 46 experienced lifters (26 men, 20 women) trained each leg under a different condition for 8 weeks with equal sets. Results: Quadriceps cross-sectional area increased 7.4% in the failure leg versus 4.9% in the non-failure leg (p=0.01).",
+      "journal": "Fixture Journal of Applied Exercise Physiology",
+      "authors": ["Zinnia Z", "Aster A"],
+      "published": "2024-05-20",
+      "publication_types": ["Randomized Controlled Trial"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0016",
+      "source_url": "https://example.org/fixtures/FIXTURE-0016",
+      "title": "Creatine supplementation and renal health in healthy adults: a systematic review with pooled estimates of randomized trials",
+      "abstract": "Pooling 21 randomized placebo-controlled trials (n=1212 healthy adults) of creatine monohydrate at 3 to 25 g/day for up to 5 years, creatine did not affect glomerular filtration rate measured by cystatin C or clearance methods (mean difference 0.9 mL/min, 95% CI -1.8 to 3.6). Serum creatinine rose slightly, as expected from creatine metabolism, without evidence of renal injury. Adverse events did not differ from placebo.",
+      "full_text": "Results: Across 21 trials (n=1212), glomerular filtration rate did not differ between creatine and placebo (mean difference 0.9 mL/min, 95% CI -1.8 to 3.6). Adverse events were reported by 8.1% of creatine and 7.9% of placebo participants. Funding and conflicts: no industry funding; the authors declare no conflicts of interest.",
+      "journal": "Fixture Journal of Sports Nutrition",
+      "authors": ["Briar B", "Clover C"],
+      "published": "2021-10-05",
+      "publication_types": ["Meta-Analysis", "Systematic Review"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0017",
+      "source_url": "https://example.org/fixtures/FIXTURE-0017",
+      "title": "Safety of 12 months of creatine monohydrate supplementation in strength-training adults: a randomized placebo-controlled trial",
+      "abstract": "One hundred healthy adults (61 men, 39 women) doing strength training took 5 g/day creatine monohydrate or placebo for 12 months. Liver enzymes, renal clearance, blood lipids and reported adverse events did not differ between groups (all p>0.20).",
+      "full_text": "Methods: 100 healthy adults (61 men, 39 women) were randomized to 5 g/day creatine monohydrate or placebo for 12 months. Results: Creatinine clearance, liver enzymes and blood lipids did not differ between groups (all p>0.20); adverse events occurred in 6 creatine and 7 placebo participants.",
+      "journal": "Fixture Journal of Sports Nutrition",
+      "authors": ["Dahlia D", "Elm E"],
+      "published": "2019-06-18",
+      "publication_types": ["Randomized Controlled Trial"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0018",
+      "source_url": "https://example.org/fixtures/FIXTURE-0018",
+      "title": "Acute interstitial nephritis in a young man taking high-dose creatine with multiple supplements: a case report",
+      "abstract": "We describe a 24-year-old man who developed acute interstitial nephritis after taking 20 g/day of creatine together with several other supplements for 6 weeks. Renal injury resolved after all supplements were stopped. A causal role for creatine could not be established.",
+      "journal": "Fixture Clinical Case Reports",
+      "authors": ["Fennel F"],
+      "published": "2014-09-01",
+      "publication_types": ["Case Reports"],
+      "retracted": false,
+      "is_preprint": false
+    },
+    {
+      "source_id": "FIXTURE-0019",
+      "source_url": "https://example.org/fixtures/FIXTURE-0019",
+      "title": "High-dose creatine supplementation and renal inflammation in rats",
+      "abstract": "Rats fed creatine at 2% of the diet for 28 days showed more renal inflammation than control rats (inflammatory cell infiltration score 2.1 vs 0.6).",
+      "journal": "Fixture Journal of Experimental Nutrition",
+      "authors": ["Ginger G", "Hazel H"],
+      "published": "2016-02-10",
+      "publication_types": ["Journal Article"],
+      "retracted": false,
+      "is_preprint": false
     }
   ]
 }

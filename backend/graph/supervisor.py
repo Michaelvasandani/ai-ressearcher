@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 
+from backend.agents.evidence import CANNOT_CARRY_ALONE
 from backend.graph.budget import BudgetKind
 from backend.graph.state import (
     MAX_SEND_BACKS,
@@ -37,7 +38,6 @@ from backend.graph.state import (
 from backend.schemas import CoachAnswer, Finding, SubQuestion, UserProfile
 
 NON_HUMAN = frozenset({"animal", "in_vitro"})
-CANNOT_CARRY_ALONE = frozenset({"animal", "in_vitro", "preprint"})
 SEARCH_FAILURE_STATES = frozenset({"rate_limited", "timed_out", "error"})  # transient: worth retrying
 
 # --- Population matching ----------------------------------------------------
@@ -75,6 +75,18 @@ def population_mismatch(profile: UserProfile | None, population: str) -> list[st
     if profile.age is not None and profile.age >= 65 and young and not older:
         reasons.append(f"studied young adults; user is {profile.age}")
     return reasons
+
+
+def downweight_reasons(profile: UserProfile | None, finding: Finding) -> list[str]:
+    """Why a finding's evidence applies less to this user (personalization by filtering).
+
+    Animal and in-vitro work never studied the user's population; human studies
+    are checked with `population_mismatch`. The finding is down-weighted, not
+    dropped (agents.evidence explains how).
+    """
+    if finding.study_type in NON_HUMAN:
+        return [f"non-human study ({finding.study_type.replace('_', ' ')})"]
+    return population_mismatch(profile, finding.population)
 
 
 def profile_qualifiers(profile: UserProfile | None) -> list[str]:

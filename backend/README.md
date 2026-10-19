@@ -17,7 +17,7 @@ The API key is read from `ANTHROPIC_API_KEY`, falling back to `ANTROPIC_API_KEY`
 ```bash
 cd backend
 .venv/bin/python -m pytest -q                                  # offline, deterministic (FakeLLM + fixtures)
-RUN_LIVE=1 .venv/bin/python -m pytest -m live -s tests/live    # real API, a few cents (graph run ~$0.04)
+RUN_LIVE=1 .venv/bin/python -m pytest -m live -s tests/live    # real API, ~$0.30 in all (synthesis runs ~$0.05-0.11 each)
 RUN_LIVE_NETWORK=1 .venv/bin/python -m pytest -m live_network -s   # real PubMed / Europe PMC / Crossref, no LLM spend
 ```
 
@@ -49,6 +49,7 @@ result = run_research(
 )
 result.outcome   # answered | degraded | referred | failed, with structured reasons; never raises
 result.answer    # CoachAnswer or None
+result.position_map, result.debate, result.verdict, result.downweighted   # synthesis records
 result.trace     # one TraceStep per node: model, tokens, cost, latency, tool calls, decision
 ```
 
@@ -63,13 +64,18 @@ result.trace     # one TraceStep per node: model, tokens, cost, latency, tool ca
 | `agents/planner.py` | 3-6 concrete sub-questions with search terms; `lint_sub_question` flags vague ones |
 | `agents/researcher.py` | Search (capped) -> dedupe / drop retracted -> one extraction call -> graded `Finding`s + `SearchStatus` |
 | `agents/grading.py` | Deterministic GRADE-style grade for one finding, with reasons |
+| `agents/evidence.py` | Deterministic synthesis rules: body-of-evidence grade, false-balance status rule, confidence cap, finding rendering |
+| `agents/mapper.py` | Position Mapper: findings -> `PositionMap` (stances from the model; ids, grades and status from code) |
+| `agents/advocate.py` | Advocate: one position, one round -> `DebateTurn`; claims without valid finding ids are rejected |
+| `agents/judge.py` | Judge: positions + debate + graded findings -> `Verdict`; code caps confidence and status |
 | `agents/writer.py` | Findings (+ optional PositionMap / Verdict) -> `CoachAnswer`; strips unknown ids, adds disclaimer |
-| `graph/builder.py` | LangGraph `StateGraph`: intake -> (referral) -> planner -> dispatch -> researchers (Send fan-out) -> review -> writer -> check_answer -> finalize; `run_research` |
+| `graph/builder.py` | LangGraph `StateGraph`: intake -> (referral) -> planner -> dispatch -> researchers (Send fan-out) -> review -> personalize -> position_mapper -> (advocates x2 rounds) -> judge -> writer -> check_answer -> finalize; `run_research` |
+| `graph/synthesis.py` | Personalize, position mapper, advocate, debate review and judge nodes; per-stage budget checks with reserves |
 | `graph/state.py` | `RunState` (typed, reducers for parallel writes), research records, reviews, degradations, `RunOutcome` |
 | `graph/nodes.py` | One node per agent / supervisor decision; meters spend, appends one trace step, never raises |
 | `graph/supervisor.py` | Deterministic review: answered? animal / in-vitro only? population match? another pass? Answer review |
 | `graph/budget.py` | `Budget` (per run), `Spend`, `MeteredLLM` / `MeteredSearch` that enforce allowances and deadlines |
-| `graph/routing.py` | `ModelRouter`: Haiku extraction, Sonnet planning / writing, Opus only on escalation |
+| `graph/routing.py` | `ModelRouter`: Haiku extraction, Sonnet planning / mapping / debate / judging / writing, Opus only on escalation |
 | `graph/trace.py` | `TraceStep` / `ToolCall` schema and the step-numbering reducer |
 | `graph/checkpoint.py` | In-memory checkpointer and the serializer allowlist (Phase 5 plugs in Postgres) |
 | `tools/search.py` | `SearchTool` protocol and `FixtureSearchTool` (synthetic records in `tools/fixtures/studies.json`) |
@@ -109,3 +115,18 @@ result.trace     # one TraceStep per node: model, tokens, cost, latency, tool ca
   filtered again by `all_findings`, so they never reach the writer.
 - Recency: queries keep the last 10 years plus older meta-analyses / systematic reviews (date filter
   in the query); ranking then favours the last 5 years, syntheses and RCTs, and full-text availability.
+- Synthesis (Phase 4): `personalize` down-weights findings whose study population differs from the
+  user (sex, training status, age via `supervisor.population_mismatch`; animal / in-vitro = non-human)
+  and records which and why in its trace step; down-weighted findings count half and one GRADE level
+  lower, but are never dropped. The mapper's model only groups findings into stances; code grades each
+  position from its findings and sets the status: dissent with only low / very-low evidence against a
+  stronger lead is set aside (`consensus`, no debate), a credible but weaker rival gives `leaning`, an
+  equal-grade rival with comparable support gives `genuinely_contested`. The model can move the status
+  towards consensus, never away. Leaning / contested maps get one advocate per position: openings in
+  parallel, then exactly one rebuttal round (`DEBATE_ROUNDS`, enforced by routing). The judge's
+  confidence is capped by the best supporting grade (contested: at most moderate) and its recommended
+  position must rest on a peer-reviewed human finding.
+- Synthesis budgets: before each stage the node estimates its cost and time and keeps a reserve for the
+  judge and the writer; the debate runs only if both rounds fit (else `debate_skipped`). Synthesis never
+  fails a run: no map -> the writer works from findings (`mapping_skipped`), no verdict -> from the map
+  (`judge_skipped`).
