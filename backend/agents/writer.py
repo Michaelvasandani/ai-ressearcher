@@ -99,7 +99,11 @@ def _render_finding(f: Finding) -> str:
 
 
 def _render_user(
-    intake: Intake, findings: list[Finding], positions: PositionMap | None, verdict: Verdict | None
+    intake: Intake,
+    findings: list[Finding],
+    positions: PositionMap | None,
+    verdict: Verdict | None,
+    feedback: str | None = None,
 ) -> str:
     parts = [
         f"Question: {intake.scoped_question}",
@@ -116,6 +120,8 @@ def _render_user(
             "The position mapper's status and positions are final. Use them as given:\n"
             + positions.model_dump_json(indent=2)
         )
+    if feedback:
+        parts.append(f"A previous draft of this answer was rejected by review. Fix these problems:\n{feedback}")
     return "\n\n".join(parts)
 
 
@@ -146,7 +152,10 @@ class WriterAgent:
         findings: list[Finding],
         positions: PositionMap | None = None,
         verdict: Verdict | None = None,
+        *,
+        feedback: str | None = None,
     ) -> CoachAnswer:
+        """`feedback` carries the supervisor's reasons when a rejected draft is rewritten."""
         if not intake.in_scope:
             raise WriterError("out-of-scope questions get the intake referral, not a coach answer")
         if not findings:
@@ -155,7 +164,7 @@ class WriterAgent:
         request = LLMRequest.for_agent(
             AGENT,
             system=SYSTEM_PROMPT,
-            user=_render_user(intake, findings, positions, verdict),
+            user=_render_user(intake, findings, positions, verdict, feedback),
             output_type=WriterDraft,
             model=self.model,
         )

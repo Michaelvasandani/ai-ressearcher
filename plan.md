@@ -117,11 +117,11 @@ class CoachAnswer(BaseModel):
 - [x] **Test each agent alone before wiring them together.** If the planner produces vague sub-questions on its own, no orchestration will rescue it. Write fixture-based tests for each.
 
 ### Phase 2: Supervisor, routing and budgets (week 1–2)
-- [ ] Model the system as a LangGraph state graph. Nodes are agents, edges are supervisor routing decisions.
-- [ ] After each researcher pass, the supervisor checks the output against the plan: Is the sub-question answered? Are the findings only animal or in-vitro studies? Does the study population match the user? Is another pass justified?
-- [ ] **Enforce budgets in the graph, not in prompts:** max sub-questions, max searches per sub-question, max total tokens, max dollars, and a wall-clock ceiling. A prompt asking the model to be efficient is not a budget.
-- [ ] The reviewer may send work back **exactly once**. Unlimited revision loops are how agent runs quietly cost twelve dollars.
-- [ ] **Model routing by cost:** Haiku for extraction and grading, Sonnet for planning, debate and writing, with escalation to a stronger model only when the supervisor's review fails.
+- [x] Model the system as a LangGraph state graph. Nodes are agents, edges are supervisor routing decisions.
+- [x] After each researcher pass, the supervisor checks the output against the plan: Is the sub-question answered? Are the findings only animal or in-vitro studies? Does the study population match the user? Is another pass justified?
+- [x] **Enforce budgets in the graph, not in prompts:** max sub-questions, max searches per sub-question, max total tokens, max dollars, and a wall-clock ceiling. A prompt asking the model to be efficient is not a budget.
+- [x] The reviewer may send work back **exactly once**. Unlimited revision loops are how agent runs quietly cost twelve dollars.
+- [x] **Model routing by cost:** Haiku for extraction and grading, Sonnet for planning, debate and writing, with escalation to a stronger model only when the supervisor's review fails.
 
 ### Phase 3: Live research with source tracking (week 2)
 - [ ] **Sources:** PubMed E-utilities (metadata and publication type), Europe PMC (open-access full text), Crossref / Retraction Watch (retraction checks). Optionally SportRxiv (labeled as preprint) and Tavily for general web context.
