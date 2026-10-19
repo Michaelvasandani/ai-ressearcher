@@ -95,8 +95,12 @@ def test_crash_in_parallel_researcher_resumes_without_replay(open_stores, search
     assert r.outcome is not None and r.outcome.status == "answered"
     # Completed nodes did not run again: no intake / planner calls, only the crashed researcher re-ran.
     assert llm2.calls_for("intake") == [] and llm2.calls_for("planner") == []
-    assert [req.user.count("Sub-question:") for req in llm2.calls_for("researcher")] == [1]
-    assert "plateau" in llm2.calls_for("researcher")[0].user.lower()
+    # The crashed researcher re-ran. A sibling still in flight when the process died may
+    # re-run too (timing-dependent), but no researcher call paid for in process 1 is paid again.
+    rerun = [req.user for req in llm2.calls_for("researcher")]
+    assert all(u.count("Sub-question:") == 1 for u in rerun)
+    assert any("plateau" in u.lower() for u in rerun)
+    assert not {req.user for req in llm1.calls_for("researcher")} & set(rerun)
     # One trace step per researcher, and one step event per trace step: nothing logged twice.
     assert sorted(s.sub_question_id for s in r.trace if s.node == "researcher") == ["sq1", "sq2", "sq3"]
     steps = [e for e in stores.events.list("run-crash") if e.type == "step"]
