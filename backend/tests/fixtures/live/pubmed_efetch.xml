@@ -1,0 +1,186 @@
+<?xml version="1.0" ?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2024//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_240101.dtd">
+<PubmedArticleSet>
+<PubmedArticle>
+  <MedlineCitation Status="MEDLINE" Owner="NLM" IndexingMethod="Automated">
+    <PMID Version="1">39000001</PMID>
+    <Article PubModel="Print-Electronic">
+      <Journal>
+        <ISSN IssnType="Electronic">1466-447X</ISSN>
+        <JournalIssue CitedMedium="Internet"><Volume>35</Volume><Issue>11</Issue><PubDate><Year>2017</Year><Month>Jun</Month></PubDate></JournalIssue>
+        <Title>Journal of sports sciences</Title>
+        <ISOAbbreviation>J Sports Sci</ISOAbbreviation>
+      </Journal>
+      <ArticleTitle>Dose-response relationship between weekly resistance training volume and increases in muscle mass: a systematic review and meta-analysis.</ArticleTitle>
+      <Abstract>
+        <AbstractText Label="OBJECTIVE" NlmCategory="OBJECTIVE">To quantify the dose-response relationship between weekly sets and hypertrophy.</AbstractText>
+        <AbstractText Label="METHODS" NlmCategory="METHODS">We pooled 15 studies (n=390) comparing weekly set volumes.</AbstractText>
+        <AbstractText Label="RESULTS" NlmCategory="RESULTS">Each additional weekly set was associated with a 0.37% increase in muscle size (95% CI 0.12 to 0.62).</AbstractText>
+      </Abstract>
+      <AuthorList CompleteYN="Y">
+        <Author ValidYN="Y"><LastName>Alder</LastName><ForeName>Ann</ForeName><Initials>A</Initials></Author>
+        <Author ValidYN="Y"><LastName>Birch</LastName><ForeName>Ben</ForeName><Initials>B</Initials></Author>
+        <Author ValidYN="Y"><LastName>Cedar</LastName><ForeName>Carl</ForeName><Initials>C</Initials></Author>
+      </AuthorList>
+      <PublicationTypeList>
+        <PublicationType UI="D016428">Journal Article</PublicationType>
+        <PublicationType UI="D017418">Meta-Analysis</PublicationType>
+        <PublicationType UI="D000078182">Systematic Review</PublicationType>
+      </PublicationTypeList>
+      <ArticleDate DateType="Electronic"><Year>2016</Year><Month>12</Month><Day>14</Day></ArticleDate>
+    </Article>
+    <MeshHeadingList>
+      <MeshHeading><DescriptorName UI="D055070" MajorTopicYN="N">Resistance Training</DescriptorName></MeshHeading>
+      <MeshHeading><DescriptorName UI="D018482" MajorTopicYN="Y">Muscle, Skeletal</DescriptorName></MeshHeading>
+      <MeshHeading><DescriptorName UI="D006984" MajorTopicYN="N">Hypertrophy</DescriptorName></MeshHeading>
+    </MeshHeadingList>
+  </MedlineCitation>
+  <PubmedData>
+    <PublicationStatus>ppublish</PublicationStatus>
+    <ArticleIdList>
+      <ArticleId IdType="pubmed">39000001</ArticleId>
+      <ArticleId IdType="doi">10.5555/ec.2017.001</ArticleId>
+      <ArticleId IdType="pmc">PMC9000001</ArticleId>
+    </ArticleIdList>
+  </PubmedData>
+</PubmedArticle>
+<PubmedArticle>
+  <MedlineCitation Status="MEDLINE" Owner="NLM">
+    <PMID Version="1">39000002</PMID>
+    <Article PubModel="Print">
+      <Journal>
+        <JournalIssue CitedMedium="Internet"><Volume>54</Volume><Issue>3</Issue><PubDate><Year>2022</Year><Month>Mar</Month><Day>01</Day></PubDate></JournalIssue>
+        <Title>Medicine and science in sports and exercise</Title>
+        <ISOAbbreviation>Med Sci Sports Exerc</ISOAbbreviation>
+      </Journal>
+      <ArticleTitle>Resistance training volume and hypertrophy in trained women: a randomized trial of 10 versus 20 weekly sets.</ArticleTitle>
+      <Abstract>
+        <AbstractText>Forty trained women performed 10 or 20 weekly sets per muscle for 12 weeks. Both groups gained muscle; differences were small.</AbstractText>
+      </Abstract>
+      <AuthorList CompleteYN="Y">
+        <Author ValidYN="Y"><LastName>Dogwood</LastName><Initials>D</Initials></Author>
+        <Author ValidYN="Y"><LastName>Cedar</LastName><Initials>C</Initials></Author>
+      </AuthorList>
+      <PublicationTypeList>
+        <PublicationType UI="D016428">Journal Article</PublicationType>
+        <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+      </PublicationTypeList>
+    </Article>
+    <MeshHeadingList>
+      <MeshHeading><DescriptorName UI="D005260" MajorTopicYN="N">Female</DescriptorName></MeshHeading>
+      <MeshHeading><DescriptorName UI="D055070" MajorTopicYN="Y">Resistance Training</DescriptorName></MeshHeading>
+    </MeshHeadingList>
+  </MedlineCitation>
+  <PubmedData>
+    <ArticleIdList>
+      <ArticleId IdType="pubmed">39000002</ArticleId>
+      <ArticleId IdType="doi">10.5555/ec.2022.002</ArticleId>
+      <ArticleId IdType="pmc">PMC9000002</ArticleId>
+    </ArticleIdList>
+  </PubmedData>
+</PubmedArticle>
+<PubmedArticle>
+  <MedlineCitation Status="MEDLINE" Owner="NLM">
+    <PMID Version="1">39000003</PMID>
+    <Article PubModel="Print">
+      <Journal>
+        <JournalIssue><PubDate><Year>2023</Year><Month>Sep</Month></PubDate></JournalIssue>
+        <Title>Medicine and science in sports and exercise</Title>
+      </Journal>
+      <ArticleTitle>Set volume and quadriceps growth in trained men: a randomized trial.</ArticleTitle>
+      <Abstract><AbstractText>Thirty trained men performed 12 or 24 weekly quadriceps sets for 10 weeks. Quadriceps cross-sectional area increased 4.1% versus 6.0%.</AbstractText></Abstract>
+      <AuthorList CompleteYN="Y">
+        <Author ValidYN="Y"><LastName>Elm</LastName><Initials>E</Initials></Author>
+        <Author ValidYN="Y"><LastName>Cedar</LastName><Initials>C</Initials></Author>
+      </AuthorList>
+      <PublicationTypeList>
+        <PublicationType UI="D016428">Journal Article</PublicationType>
+        <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+      </PublicationTypeList>
+    </Article>
+  </MedlineCitation>
+  <PubmedData>
+    <ArticleIdList>
+      <ArticleId IdType="pubmed">39000003</ArticleId>
+      <ArticleId IdType="doi">10.5555/ec.2023.003</ArticleId>
+    </ArticleIdList>
+  </PubmedData>
+</PubmedArticle>
+<PubmedArticle>
+  <MedlineCitation Status="MEDLINE" Owner="NLM">
+    <PMID Version="1">39000004</PMID>
+    <Article PubModel="Print-Electronic">
+      <Journal>
+        <JournalIssue><PubDate><Year>2021</Year><Month>Feb</Month></PubDate></JournalIssue>
+        <Title>Journal of strength and conditioning research</Title>
+      </Journal>
+      <ArticleTitle>RETRACTED: Extreme set volumes double hypertrophy in four weeks.</ArticleTitle>
+      <Abstract><AbstractText>Twelve men performed 60 weekly sets; muscle thickness doubled.</AbstractText></Abstract>
+      <AuthorList CompleteYN="Y">
+        <Author ValidYN="Y"><LastName>Hazel</LastName><Initials>H</Initials></Author>
+      </AuthorList>
+      <PublicationTypeList>
+        <PublicationType UI="D016428">Journal Article</PublicationType>
+        <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+        <PublicationType UI="D016441">Retracted Publication</PublicationType>
+      </PublicationTypeList>
+    </Article>
+    <CommentsCorrectionsList>
+      <CommentsCorrections RefType="RetractionIn"><RefSource>J Strength Cond Res. 2022 Jan;36(1):300</RefSource><PMID Version="1">39000099</PMID></CommentsCorrections>
+    </CommentsCorrectionsList>
+  </MedlineCitation>
+  <PubmedData>
+    <ArticleIdList>
+      <ArticleId IdType="pubmed">39000004</ArticleId>
+      <ArticleId IdType="doi">10.5555/ec.2021.004</ArticleId>
+    </ArticleIdList>
+  </PubmedData>
+</PubmedArticle>
+<PubmedArticle>
+  <MedlineCitation Status="MEDLINE" Owner="NLM">
+    <PMID Version="1">39000005</PMID>
+    <Article PubModel="Print">
+      <Journal>
+        <JournalIssue><PubDate><MedlineDate>2012 Nov-Dec</MedlineDate></PubDate></JournalIssue>
+        <Title>European journal of applied physiology</Title>
+      </Journal>
+      <ArticleTitle>Single versus multiple sets for hypertrophy in untrained men.</ArticleTitle>
+      <Abstract><AbstractText>Twenty untrained men performed one or three sets per exercise for 8 weeks; three sets produced 2.1% greater gains.</AbstractText></Abstract>
+      <AuthorList CompleteYN="Y">
+        <Author ValidYN="Y"><LastName>Juniper</LastName><Initials>J</Initials></Author>
+        <Author ValidYN="N"><LastName>Ghost</LastName><Initials>G</Initials></Author>
+      </AuthorList>
+      <PublicationTypeList><PublicationType UI="D016428">Journal Article</PublicationType></PublicationTypeList>
+    </Article>
+  </MedlineCitation>
+  <PubmedData>
+    <ArticleIdList><ArticleId IdType="pubmed">39000005</ArticleId></ArticleIdList>
+  </PubmedData>
+</PubmedArticle>
+<PubmedArticle>
+  <MedlineCitation Status="PubMed-not-MEDLINE" Owner="NLM">
+    <PMID Version="1">39000006</PMID>
+    <Article PubModel="Electronic">
+      <Journal>
+        <JournalIssue><PubDate><Year>2024</Year><Month>05</Month><Day>20</Day></PubDate></JournalIssue>
+        <Title>Sports medicine</Title>
+      </Journal>
+      <ArticleTitle>High-volume training in resistance-trained adults: a randomized trial.</ArticleTitle>
+      <Abstract><AbstractText>Fifty trained adults performed 15 or 35 weekly sets; the high-volume group gained 9.5% more muscle thickness.</AbstractText></Abstract>
+      <AuthorList CompleteYN="Y">
+        <Author ValidYN="Y"><LastName>Fir</LastName><Initials>F</Initials></Author>
+      </AuthorList>
+      <PublicationTypeList>
+        <PublicationType UI="D016428">Journal Article</PublicationType>
+        <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+      </PublicationTypeList>
+    </Article>
+  </MedlineCitation>
+  <PubmedData>
+    <ArticleIdList>
+      <ArticleId IdType="pubmed">39000006</ArticleId>
+      <ArticleId IdType="doi">10.5555/ec.2024.006</ArticleId>
+    </ArticleIdList>
+  </PubmedData>
+</PubmedArticle>
+</PubmedArticleSet>

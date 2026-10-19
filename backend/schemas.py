@@ -134,51 +134,150 @@ class ResearchPlan(Record):
 # --- Research ---------------------------------------------------------------
 
 
+SourceName = Literal["pubmed", "europepmc", "crossref", "sportrxiv", "fixture"]
+TextSource = Literal["full_text", "abstract"]
+Access = Literal["open_access", "paywalled", "unavailable", "unknown"]
+
+
 class StudyRecord(Record):
     """A raw search hit, as returned by a SearchTool. Provenance lives here."""
 
-    source_id: str  # PMID / DOI / NCT id
+    source_id: str  # "PMID:123", "DOI:10.x/y", or a fixture / preprint id
     source_url: str
     title: str
     abstract: str
-    full_text: str | None = None  # methods + results where available
+    full_text: str | None = None  # methods + results sections from open-access full text, if fetched
     journal: str | None = None
-    authors: list[str] = Field(default_factory=list)
+    authors: list[str] = Field(default_factory=list)  # "Last FM", in byline order
     published: date
     publication_types: list[str] = Field(default_factory=list)  # as reported by the source
     retracted: bool = False
     is_preprint: bool = False
+    # Identifiers (used to deduplicate across sources)
+    pmid: str | None = None
+    doi: str | None = None
+    pmcid: str | None = None
+    mesh_terms: list[str] = Field(default_factory=list)
+    # Provenance: which database and endpoint served the record, and when
+    source: SourceName = "fixture"
+    endpoint: str | None = None  # e.g. "pubmed:efetch", "europepmc:search"
+    retrieved_at: datetime | None = None
+    also_found_in: list[str] = Field(default_factory=list)  # other "source:endpoint"s that returned it
+    access: Access = "unknown"  # why full_text is or is not present
+    full_text_url: str | None = None  # where full_text was fetched from
+    retraction_checked_by: list[str] = Field(default_factory=list)  # e.g. ["pubmed:publication_type", "crossref"]
+    retraction_notice: str | None = None  # DOI / PMID / text of the notice when retracted
+
+    @property
+    def text_source(self) -> TextSource:
+        """Whether this record's best text is the full-text sections or only the abstract."""
+        return "full_text" if self.full_text else "abstract"
+
+    @property
+    def last_author(self) -> str | None:
+        return self.authors[-1] if self.authors else None
+
+    def has_provenance(self) -> bool:
+        return bool(self.source_id.strip() and self.source_url.strip() and self.retrieved_at)
 
 
 SearchState = Literal["ok", "no_results", "rate_limited", "paywalled", "timed_out", "error"]
 
 
 class SearchResponse(Record):
-    """What a SearchTool returns for one query. Never raised as an exception."""
+    """What a SearchTool returns for one query. Never raised as an exception.
+
+    `paywalled` with records means every record came back abstract-only (no
+    open-access full text); the records are still usable and labeled.
+    """
 
     query: str
     state: SearchState
     records: list[StudyRecord] = Field(default_factory=list)
     message: str | None = None
+    source_states: dict[str, SearchState] = Field(default_factory=dict)  # per source, for composite tools
+    dropped: list["DroppedRecord"] = Field(default_factory=list)  # merged duplicates, diversity caps, ...
+
+
+DropReason = Literal[
+    "retracted",
+    "duplicate",
+    "irrelevant",
+    "no_provenance",
+    "extraction_failed",
+    "journal_cap",  # too many results from one journal
+    "author_cap",  # too many results from one author group (same last author)
+]
 
 
 class DroppedRecord(Record):
     source_id: str
-    reason: Literal["retracted", "duplicate", "irrelevant", "no_provenance", "extraction_failed"]
+    reason: DropReason
     detail: str | None = None
+
+
+SearchStatusState = Literal[
+    "ok",
+    "partial",  # findings, but some searches failed transiently
+    "no_results",
+    "rate_limited",
+    "paywalled",  # findings rest on abstracts only (no open-access full text)
+    "timed_out",
+    "retracted",  # everything relevant that came back was retracted
+    "error",
+]
 
 
 class SearchStatus(Record):
     """Structured outcome of researching one sub-question; the supervisor acts on it."""
 
     sub_question_id: str
-    state: Literal["ok", "partial", "no_results", "rate_limited", "paywalled", "timed_out", "error"]
+    state: SearchStatusState
     queries: list[str] = Field(default_factory=list)
     searches_run: int = 0
     records_seen: int = 0
     findings_kept: int = 0
+    abstract_only: list[str] = Field(default_factory=list)  # kept source ids with no full text
     dropped: list[DroppedRecord] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+
+
+class Provenance(Record):
+    """Where a finding came from: enough to re-fetch and audit it."""
+
+    source: SourceName  # database that served the metadata
+    endpoint: str  # e.g. "pubmed:efetch"
+    source_id: str
+    url: str
+    retrieved_at: datetime
+    text_source: TextSource  # the snippet came from full-text sections or only the abstract
+    full_text_url: str | None = None
+    also_found_in: list[str] = Field(default_factory=list)
+    retraction_checked_by: list[str] = Field(default_factory=list)
+
+    @field_validator("endpoint", "source_id", "url")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("provenance fields must be non-empty")
+        return v
+
+    @classmethod
+    def of(cls, record: StudyRecord) -> "Provenance | None":
+        """Provenance for a search record, or None if the record lacks it."""
+        if not record.has_provenance():
+            return None
+        return cls(
+            source=record.source,
+            endpoint=record.endpoint or record.source,
+            source_id=record.source_id,
+            url=record.source_url,
+            retrieved_at=record.retrieved_at,  # type: ignore[arg-type]
+            text_source=record.text_source,
+            full_text_url=record.full_text_url,
+            also_found_in=record.also_found_in,
+            retraction_checked_by=record.retraction_checked_by,
+        )
 
 
 class Finding(Record):
@@ -199,6 +298,9 @@ class Finding(Record):
     retrieved_at: datetime
     grade: EvidenceGrade  # certainty of this single finding (deterministic, see grading.py)
     grade_reasons: list[str] = Field(default_factory=list)
+    # Optional in the schema so a finding without it can be represented and then rejected by
+    # the provenance gate (graph.state.usable_findings) before it reaches the writer.
+    provenance: Provenance | None = None
 
     @field_validator("source_id", "source_url")
     @classmethod
@@ -206,6 +308,17 @@ class Finding(Record):
         if not v.strip():
             raise ValueError("findings must carry provenance")
         return v
+
+    def provenance_problem(self) -> str | None:
+        """Why this finding is unusable for the writer, or None if its provenance is complete."""
+        p = self.provenance
+        if p is None:
+            return "no provenance record"
+        if p.source_id != self.source_id:
+            return f"provenance is for {p.source_id}, finding is {self.source_id}"
+        if p.url != self.source_url:
+            return "provenance URL does not match the finding"
+        return None
 
 
 class ResearchResult(Record):

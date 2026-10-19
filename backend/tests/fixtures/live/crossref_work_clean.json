@@ -1,0 +1,5 @@
+{
+  "status": "ok", "message-type": "work", "message-version": "1.0.0",
+  "message": {"DOI": "10.5555/ec.2022.002", "type": "journal-article", "title": ["Resistance training volume and hypertrophy in trained women"],
+    "relation": {"is-supplemented-by": [{"id-type": "doi", "id": "10.5555/data.002", "asserted-by": "subject"}]}}
+}

@@ -1,0 +1,12 @@
+{
+  "data": [
+    {"id": "ec009", "type": "preprints",
+     "attributes": {"title": "Hypertrophy with low and high weekly volume in trained lifters", "description": "Twenty-eight trained lifters performed 9 or 18 weekly sets; growth was similar.",
+                    "date_created": "2025-03-01T10:00:00.000000", "date_published": "2025-03-02T12:00:00.000000", "is_published": true, "date_withdrawn": null},
+     "links": {"html": "https://osf.io/preprints/sportrxiv/ec009", "preprint_doi": "https://doi.org/10.51224/SRXIV.009"}},
+    {"id": "ec010", "type": "preprints",
+     "attributes": {"title": "Withdrawn: volume and hypertrophy", "description": "Withdrawn.", "date_published": "2024-01-10T00:00:00", "date_withdrawn": "2024-05-01T00:00:00", "withdrawal_justification": "data error"},
+     "links": {"html": "https://osf.io/preprints/sportrxiv/ec010"}}
+  ],
+  "links": {"next": null, "meta": {"total": 2, "per_page": 10}}
+}

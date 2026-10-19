@@ -1,0 +1,56 @@
+{
+  "version": "6.9",
+  "hitCount": 4,
+  "nextCursorMark": "AoIIP4AAACgzOTAwMDAwMg==",
+  "request": {"queryString": "resistance training volume hypertrophy", "resultType": "core", "cursorMark": "*", "pageSize": 20, "sort": ""},
+  "resultList": {
+    "result": [
+      {
+        "id": "39000002", "source": "MED", "pmid": "39000002", "pmcid": "PMC9000002", "doi": "10.5555/ec.2022.002",
+        "title": "Resistance training volume and hypertrophy in trained women: a randomized trial of 10 versus 20 weekly sets.",
+        "authorString": "Dogwood D, Cedar C.",
+        "authorList": {"author": [{"fullName": "Dogwood D", "lastName": "Dogwood", "initials": "D"}, {"fullName": "Cedar C", "lastName": "Cedar", "initials": "C"}]},
+        "journalInfo": {"journal": {"title": "Medicine and science in sports and exercise", "isoabbreviation": "Med Sci Sports Exerc"}, "yearOfPublication": 2022},
+        "pubYear": "2022",
+        "abstractText": "Forty trained women performed 10 or 20 weekly sets per muscle for 12 weeks. Both groups gained muscle; differences were small.",
+        "isOpenAccess": "Y", "inEPMC": "Y", "inPMC": "Y",
+        "pubTypeList": {"pubType": ["Randomized Controlled Trial", "research-article", "Journal Article"]},
+        "firstPublicationDate": "2022-03-01"
+      },
+      {
+        "id": "PMC9000007", "source": "PMC", "pmcid": "PMC9000007", "doi": "10.5555/ec.2025.007",
+        "title": "Weekly set volume and muscle growth in recreationally trained adults: a <i>randomized</i> crossover trial",
+        "authorString": "Larch L, Maple M.",
+        "authorList": {"author": [{"fullName": "Larch L", "lastName": "Larch", "initials": "L"}, {"fullName": "Maple M", "lastName": "Maple", "initials": "M"}]},
+        "journalInfo": {"journal": {"title": "PeerJ"}},
+        "pubYear": "2025",
+        "abstractText": "<h4>Background</h4>Twenty-four adults trained each leg with 8 or 16 weekly sets. <h4>Results</h4>Growth was similar between legs.",
+        "isOpenAccess": "Y", "inEPMC": "Y",
+        "pubTypeList": {"pubType": ["research-article"]},
+        "firstPublicationDate": "2025-01-15"
+      },
+      {
+        "id": "PPR900008", "source": "PPR", "doi": "10.31236/osf.io/ec008",
+        "title": "Volume landmarks for hypertrophy: a large online survey of lifters",
+        "authorString": "Oak O, Pine P.",
+        "bookOrReportDetails": {"publisher": "SportRxiv"},
+        "pubYear": "2025",
+        "abstractText": "We surveyed 2058 lifters about their weekly sets and self-reported growth.",
+        "isOpenAccess": "N", "inEPMC": "N",
+        "pubTypeList": {"pubType": ["Preprint"]},
+        "firstPublicationDate": "2025-06-02"
+      },
+      {
+        "id": "39000001", "source": "MED", "pmid": "39000001", "pmcid": "PMC9000001", "doi": "10.5555/EC.2017.001",
+        "title": "Dose-response relationship between weekly resistance training volume and increases in muscle mass: a systematic review and meta-analysis.",
+        "authorString": "Alder A, Birch B, Cedar C.",
+        "journalInfo": {"journal": {"title": "Journal of sports sciences"}},
+        "pubYear": "2017",
+        "abstractText": "We pooled 15 studies (n=390) comparing weekly set volumes.",
+        "isOpenAccess": "Y", "inEPMC": "Y",
+        "pubTypeList": {"pubType": ["Meta-Analysis", "Systematic Review", "Journal Article"]},
+        "firstPublicationDate": "2016-12-14"
+      }
+    ]
+  }
+}

@@ -9,6 +9,7 @@ description = "Evidence Coach: multi-agent, citation-first training and nutritio
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.15",
+    "httpx>=0.27",
     "langgraph>=1.2,<2",
     "pydantic>=2.7",
 ]
@@ -30,4 +31,5 @@ testpaths = ["tests"]
 pythonpath = [".."]
 markers = [
     "live: hits the real Anthropic API; skipped unless RUN_LIVE=1",
+    "live_network: hits PubMed / Europe PMC / Crossref; skipped unless RUN_LIVE_NETWORK=1",
 ]

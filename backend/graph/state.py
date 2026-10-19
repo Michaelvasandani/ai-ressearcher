@@ -106,6 +106,8 @@ DegradationKind = Literal[
     "sub_question_unanswered",
     "send_back_unavailable",
     "population_mismatch",
+    "abstract_only_evidence",
+    "provenance_rejected",
 ]
 
 
@@ -125,6 +127,8 @@ IssueCode = Literal[
     "population_mismatch",
     "search_failed",
     "extraction_failed",
+    "abstract_only",  # no open-access full text: findings rest on abstracts (paywalled)
+    "retracted_only",  # everything relevant that came back was retracted
 ]
 
 
@@ -227,11 +231,16 @@ class RunState(TypedDict, total=False):
 
 
 def all_findings(state: RunState) -> list[Finding]:
-    """Findings for the selected sub-questions, in plan order."""
+    """Findings for the selected sub-questions, in plan order.
+
+    Provenance gate (defense in depth; the researcher node already rejects
+    them): a finding without complete provenance never reaches the writer or
+    the answer review.
+    """
     research = state.get("research") or {}
     out: list[Finding] = []
     for sq in state.get("sub_questions") or []:
         rec = research.get(sq.id)
         if rec:
-            out.extend(rec.findings)
+            out.extend(f for f in rec.findings if f.provenance_problem() is None)
     return out

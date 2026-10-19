@@ -74,3 +74,37 @@ def price_for(model: str) -> Price:
 def anthropic_api_key() -> str | None:
     """Read the API key, accepting the misspelled ANTROPIC_API_KEY as a fallback."""
     return os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTROPIC_API_KEY")
+
+
+# --- Literature search --------------------------------------------------------
+
+SearchBackend = Literal["fixture", "live"]
+
+
+@dataclass(frozen=True)
+class SearchSettings:
+    """Search configuration from the environment. `fixture` is the default (and the test default)."""
+
+    backend: SearchBackend = "fixture"
+    ncbi_api_key: str | None = None  # raises the PubMed limit from 3 to 10 requests/second
+    contact_email: str | None = None  # sent to NCBI (email=), Europe PMC and Crossref (mailto=)
+    include_preprints: bool = False  # add SportRxiv as a labeled preprint source
+    timeout_s: float = 15.0  # per HTTP request
+    max_retries: int = 3  # per HTTP request, for 429 / 5xx / timeouts
+    time_budget_s: float = 60.0  # per search() call, across sources and full-text fetches
+
+    @classmethod
+    def from_env(cls, env: dict[str, str] | None = None) -> "SearchSettings":
+        e = os.environ if env is None else env
+        backend = (e.get("SEARCH_BACKEND") or "fixture").strip().lower()
+        if backend not in ("fixture", "live"):
+            raise ValueError(f"SEARCH_BACKEND must be 'fixture' or 'live', got {backend!r}")
+        return cls(
+            backend=backend,  # type: ignore[arg-type]
+            ncbi_api_key=e.get("NCBI_API_KEY") or None,
+            contact_email=e.get("SEARCH_CONTACT_EMAIL") or None,
+            include_preprints=e.get("SEARCH_INCLUDE_PREPRINTS", "").strip().lower() in ("1", "true", "yes"),
+            timeout_s=float(e.get("SEARCH_TIMEOUT_S") or 15.0),
+            max_retries=int(e.get("SEARCH_MAX_RETRIES") or 3),
+            time_budget_s=float(e.get("SEARCH_TIME_BUDGET_S") or 60.0),
+        )

@@ -18,18 +18,32 @@ The API key is read from `ANTHROPIC_API_KEY`, falling back to `ANTROPIC_API_KEY`
 cd backend
 .venv/bin/python -m pytest -q                                  # offline, deterministic (FakeLLM + fixtures)
 RUN_LIVE=1 .venv/bin/python -m pytest -m live -s tests/live    # real API, a few cents (graph run ~$0.04)
+RUN_LIVE_NETWORK=1 .venv/bin/python -m pytest -m live_network -s   # real PubMed / Europe PMC / Crossref, no LLM spend
 ```
+
+## Search backend
+
+`SEARCH_BACKEND=fixture` (default, used by tests) serves synthetic records from `tools/fixtures/studies.json`.
+`SEARCH_BACKEND=live` queries PubMed + Europe PMC, checks Crossref / Retraction Watch and reads open-access full text.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SEARCH_BACKEND` | `fixture` | `fixture` or `live` |
+| `NCBI_API_KEY` | unset | raises the PubMed limit from 3 to 10 requests/second |
+| `SEARCH_CONTACT_EMAIL` | unset | sent as `email=` (NCBI, Europe PMC) and `mailto=` (Crossref polite pool) |
+| `SEARCH_INCLUDE_PREPRINTS` | off | add SportRxiv (OSF API) as a labeled preprint source |
+| `SEARCH_TIMEOUT_S` / `SEARCH_MAX_RETRIES` / `SEARCH_TIME_BUDGET_S` | 15 / 3 / 60 | per request / per request / per `search()` call |
 
 ## Run a question through the graph
 
 ```python
 from backend.graph import Budget, GraphDeps, memory_checkpointer, run_research
 from backend.llm import AnthropicLLM
-from backend.tools.search import FixtureSearchTool
+from backend.tools.factory import build_search_tool
 
 result = run_research(
     "How many sets per week for hypertrophy?",
-    deps=GraphDeps(llm=AnthropicLLM(), search_tool=FixtureSearchTool.from_file()),
+    deps=GraphDeps(llm=AnthropicLLM(), search_tool=build_search_tool()),  # SEARCH_BACKEND=fixture|live
     budget=Budget(max_usd=0.20),
     checkpointer=memory_checkpointer(),
 )
@@ -59,7 +73,16 @@ result.trace     # one TraceStep per node: model, tokens, cost, latency, tool ca
 | `graph/trace.py` | `TraceStep` / `ToolCall` schema and the step-numbering reducer |
 | `graph/checkpoint.py` | In-memory checkpointer and the serializer allowlist (Phase 5 plugs in Postgres) |
 | `tools/search.py` | `SearchTool` protocol and `FixtureSearchTool` (synthetic records in `tools/fixtures/studies.json`) |
-| `tests/` | One test file per agent; canned model outputs in `tests/fixtures/`; live checks in `tests/live/` |
+| `tools/composite.py` | Live `SearchTool`: sources in parallel -> dedupe -> rank -> caps -> retraction check -> full text |
+| `tools/pubmed.py` | E-utilities esearch + efetch XML: publication types, MeSH, structured abstract, DOI/PMCID, RetractionIn |
+| `tools/europepmc.py` | Europe PMC search (OA flag, PMCID, preprints) and `fullTextXML` fetch |
+| `tools/jats.py` | JATS section parser: methods, results, funding / competing interests; drops intro, discussion, tables |
+| `tools/retraction.py` | Crossref / Retraction Watch: `updated-by`, `relation`, then `filter=updates:{doi}` notices |
+| `tools/sportrxiv.py` | Optional SportRxiv preprints (OSF API), always labeled preprint; withdrawn = retracted |
+| `tools/ranking.py` | DOI/PMID/PMCID dedupe + merge, recency/design ranking, per-journal and per-last-author caps |
+| `tools/http.py` | Shared httpx client: per-host rate limits (thread-safe), 429/5xx backoff with Retry-After, retry cap |
+| `tools/factory.py` | `build_search_tool()` from `SearchSettings` (env) |
+| `tests/` | One test file per agent; canned model outputs in `tests/fixtures/`; live checks in `tests/live/`; recorded-format API fixtures in `tests/fixtures/live/` served by `httpx.MockTransport` (`tests/live_fakes.py`) |
 
 ## Design notes
 
@@ -75,5 +98,14 @@ result.trace     # one TraceStep per node: model, tokens, cost, latency, tool ca
 - The supervisor sends work back at most once per run (`MAX_SEND_BACKS`, counted in state). That one
   send-back is either a research re-pass (escalated to Opus unless it only retries failed searches)
   or an Opus rewrite after the writer fails or its answer fails review.
-- Expected search failures (no results, rate limited, paywalled, timed out, tool error, extraction
-  failure) come back as `SearchStatus.state`, never as exceptions.
+- Expected search failures (no results, rate limited, paywalled, timed out, retracted, tool error,
+  extraction failure) come back as `SearchStatus.state`, never as exceptions. The supervisor retries
+  transient ones (rate limited / timed out / error) on the same model, searches again for
+  `retracted`, and accepts `paywalled` (abstract-only) findings with an `abstract_only_evidence`
+  degradation.
+- Provenance: every `StudyRecord` carries source, endpoint, URL, retrieval time and whether its text
+  is full text or abstract; the researcher copies that into `Finding.provenance`. Findings without
+  complete provenance are rejected in the researcher node (`provenance_rejected` degradation) and
+  filtered again by `all_findings`, so they never reach the writer.
+- Recency: queries keep the last 10 years plus older meta-analyses / systematic reviews (date filter
+  in the query); ranking then favours the last 5 years, syntheses and RCTs, and full-text availability.

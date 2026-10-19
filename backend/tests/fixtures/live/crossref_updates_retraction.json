@@ -1,0 +1,10 @@
+{
+  "status": "ok", "message-type": "work-list", "message-version": "1.0.0",
+  "message": {
+    "total-results": 1, "items-per-page": 20,
+    "items": [
+      {"DOI": "10.5555/ec.2023.retraction.003", "type": "journal-article", "title": ["Retraction notice"],
+       "update-to": [{"updated": {"date-parts": [[2024, 7, 1]]}, "DOI": "10.5555/ec.2023.003", "type": "retraction", "label": "Retraction", "source": "publisher"}]}
+    ]
+  }
+}

@@ -124,12 +124,12 @@ class CoachAnswer(BaseModel):
 - [x] **Model routing by cost:** Haiku for extraction and grading, Sonnet for planning, debate and writing, with escalation to a stronger model only when the supervisor's review fails.
 
 ### Phase 3: Live research with source tracking (week 2)
-- [ ] **Sources:** PubMed E-utilities (metadata and publication type), Europe PMC (open-access full text), Crossref / Retraction Watch (retraction checks). Optionally SportRxiv (labeled as preprint) and Tavily for general web context.
-- [ ] Every finding is a record with provenance. Findings without provenance are unusable in the writer step.
-- [ ] Fetch and extract the methods and results rather than trusting abstracts and search snippets.
-- [ ] Prefer recent work: the last 5–10 years, plus older meta-analyses that are still standard references.
-- [ ] Deduplicate by DOI/PMID and cap results per journal or author group so one lab cannot dominate.
-- [ ] Handle each failure path explicitly: no results, rate limited, paywalled, timed out, retracted. Each returns a structured `SearchStatus` the supervisor can act on, never an exception that kills the run.
+- [x] **Sources:** PubMed E-utilities (metadata and publication type), Europe PMC (open-access full text), Crossref / Retraction Watch (retraction checks). Optionally SportRxiv (labeled as preprint) and Tavily for general web context.
+- [x] Every finding is a record with provenance. Findings without provenance are unusable in the writer step.
+- [x] Fetch and extract the methods and results rather than trusting abstracts and search snippets.
+- [x] Prefer recent work: the last 5–10 years, plus older meta-analyses that are still standard references.
+- [x] Deduplicate by DOI/PMID and cap results per journal or author group so one lab cannot dominate.
+- [x] Handle each failure path explicitly: no results, rate limited, paywalled, timed out, retracted. Each returns a structured `SearchStatus` the supervisor can act on, never an exception that kills the run.
 
 ### Phase 4: Position mapping, debate and judgment (week 3)
 - [ ] **Position Mapper** groups findings into the actual positions in the literature. If the evidence clusters on one side, it marks `consensus` and skips the debate.

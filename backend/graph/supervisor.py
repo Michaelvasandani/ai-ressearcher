@@ -12,6 +12,12 @@ After the writer it checks the answer: it cites real findings, the
 recommendation does not rest on preprints / animal / in-vitro work alone, and
 confidence is not higher than the cited evidence allows.
 
+Search statuses map to issues: rate_limited / timed_out / error / partial ->
+`search_failed` (retried on the same model), paywalled -> `abstract_only`
+(accepted, flagged as a degradation), retracted -> `retracted_only` (search
+again, e.g. for a newer synthesis). `provenance_gate` rejects findings that
+cannot be traced to their source before they enter state.
+
 These functions are pure; the graph nodes in nodes.py call them and turn the
 result into routing decisions, tasks and trace steps.
 """
@@ -32,7 +38,7 @@ from backend.schemas import CoachAnswer, Finding, SubQuestion, UserProfile
 
 NON_HUMAN = frozenset({"animal", "in_vitro"})
 CANNOT_CARRY_ALONE = frozenset({"animal", "in_vitro", "preprint"})
-SEARCH_FAILURE_STATES = frozenset({"rate_limited", "timed_out", "error", "paywalled"})
+SEARCH_FAILURE_STATES = frozenset({"rate_limited", "timed_out", "error"})  # transient: worth retrying
 
 # --- Population matching ----------------------------------------------------
 
@@ -89,6 +95,22 @@ def profile_qualifiers(profile: UserProfile | None) -> list[str]:
     return words
 
 
+# --- Provenance gate ----------------------------------------------------------
+
+
+def provenance_gate(findings: list[Finding]) -> tuple[list[Finding], dict[str, str]]:
+    """Split findings into those with complete provenance and rejected id -> reason."""
+    kept: list[Finding] = []
+    rejected: dict[str, str] = {}
+    for f in findings:
+        problem = f.provenance_problem()
+        if problem is None:
+            kept.append(f)
+        else:
+            rejected[f.id] = problem
+    return kept, rejected
+
+
 # --- Research review --------------------------------------------------------
 
 
@@ -104,6 +126,10 @@ def _issues(record: ResearchRecord | None, mismatches: dict[str, str], human: li
     if status is not None:
         if status.state in SEARCH_FAILURE_STATES or status.state == "partial":
             issues.append("search_failed")
+        if status.state == "paywalled":
+            issues.append("abstract_only")
+        if status.state == "retracted":
+            issues.append("retracted_only")
         if any(d.reason == "extraction_failed" for d in status.dropped):
             issues.append("extraction_failed")
     if human and len(mismatches) == len(human):
@@ -132,6 +158,8 @@ def refine_queries(
         qualifiers = " ".join(profile_qualifiers(profile))
         if qualifiers:
             candidates += [f"{t} {qualifiers}" for t in base]
+    if "retracted_only" in issues:  # look for the replication / newer synthesis instead
+        candidates += [f"{t} meta-analysis" for t in base]
     if {"no_findings", "not_researched", "extraction_failed"} & set(issues):
         candidates += [t for t in base if t not in tried]
         candidates.append(sq.question.rstrip("?").strip())
@@ -180,9 +208,12 @@ def review_sub_question(
             why, blocked_by = "another pass would help, but there is no untried query", "no_untried_query"
     # Re-running searches that failed for transient reasons needs no stronger model;
     # anything about the quality of what was extracted does.
-    model_issues = set(issues) - {"search_failed", "not_researched"}
+    # Paywalls and retractions are about what exists, not about extraction quality.
+    model_issues = set(issues) - {"search_failed", "not_researched", "abstract_only", "retracted_only"}
     if "search_failed" in issues and status is not None and status.records_seen == 0:
         model_issues.discard("no_findings")  # nothing came back to extract: a search problem
+    if "retracted_only" in issues:
+        model_issues.discard("no_findings")  # nothing usable came back: a search problem
     return SubQuestionReview(
         sub_question_id=sq.id,
         answered=answered,

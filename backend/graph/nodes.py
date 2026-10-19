@@ -44,10 +44,10 @@ from backend.graph.state import (
     RunState,
     all_findings,
 )
-from backend.graph.supervisor import review_answer, review_research
+from backend.graph.supervisor import provenance_gate, review_answer, review_research
 from backend.graph.trace import StepTimer
 from backend.llm import LLMClient
-from backend.schemas import ResearchResult, SearchStatus
+from backend.schemas import DroppedRecord, ResearchResult, SearchStatus
 from backend.tools.search import SearchTool
 
 log = logging.getLogger(__name__)
@@ -294,6 +294,18 @@ class Nodes:
                 status=SearchStatus(sub_question_id=sq.id, state="error", queries=sq.search_terms, errors=[error]),
             )
 
+        # Provenance gate: a finding that cannot be traced to its source never enters state.
+        kept, rejected = provenance_gate(result.findings)
+        if rejected:
+            status = result.status.model_copy(deep=True)
+            source_ids = {f.id: f.source_id for f in result.findings}
+            status.dropped += [
+                DroppedRecord(source_id=source_ids[fid], reason="no_provenance", detail=f"finding {fid}: {why}")
+                for fid, why in rejected.items()
+            ]
+            status.findings_kept = len(kept)
+            result = ResearchResult(sub_question_id=sq.id, findings=kept, status=status)
+
         kind: BudgetKind | None = llm.exhausted or search.exhausted
         executed = [c for c in search.calls if c.state != "refused"]
         record = ResearchRecord(
@@ -315,6 +327,13 @@ class Nodes:
             queries_run=[c.input for c in executed],
         )
         degradations = []
+        if rejected:
+            degradations.append(
+                Degradation(
+                    kind="provenance_rejected", node="researcher", sub_question_id=sq.id,
+                    detail=f"{len(rejected)} finding(s) without provenance rejected: {', '.join(sorted(rejected))}"[:500],
+                )
+            )
         if kind is not None:
             degradations.append(
                 Degradation(
@@ -453,7 +472,14 @@ class Nodes:
                         detail=f"{', '.join(r.issues) or 'unanswered'}",
                     )
                 )
-            elif "population_mismatch" in r.issues:
+            elif "abstract_only" in r.issues:
+                out.append(
+                    Degradation(
+                        kind="abstract_only_evidence", node="review", sub_question_id=r.sub_question_id,
+                        detail="no open-access full text: findings rest on abstracts",
+                    )
+                )
+            if r.answered and "population_mismatch" in r.issues:
                 out.append(
                     Degradation(
                         kind="population_mismatch", node="review", sub_question_id=r.sub_question_id,

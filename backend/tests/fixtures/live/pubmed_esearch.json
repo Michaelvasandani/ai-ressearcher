@@ -1,0 +1,8 @@
+{
+  "header": {"type": "esearch", "version": "0.3"},
+  "esearchresult": {
+    "count": "6", "retmax": "6", "retstart": "0",
+    "idlist": ["39000002", "39000001", "39000006", "39000003", "39000004", "39000005"],
+    "translationset": [], "querytranslation": "resistance training volume hypertrophy"
+  }
+}

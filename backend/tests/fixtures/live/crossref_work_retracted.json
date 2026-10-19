@@ -1,0 +1,11 @@
+{
+  "status": "ok", "message-type": "work", "message-version": "1.0.0",
+  "message": {
+    "DOI": "10.5555/ec.2024.006", "type": "journal-article", "title": ["High-volume training in resistance-trained adults: a randomized trial"],
+    "container-title": ["Sports Medicine"],
+    "updated-by": [
+      {"updated": {"date-parts": [[2025, 2, 11]], "date-time": "2025-02-11T00:00:00Z", "timestamp": 1739232000000},
+       "DOI": "10.5555/ec.2025.retraction.006", "type": "retraction", "source": "retraction-watch", "record-id": 99001, "label": "Retraction"}
+    ]
+  }
+}

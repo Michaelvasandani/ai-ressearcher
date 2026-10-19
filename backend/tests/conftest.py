@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from backend.llm import FakeLLM
-from backend.schemas import Finding, Intake, SubQuestion, UserProfile, utcnow
+from backend.schemas import Finding, Intake, Provenance, SubQuestion, UserProfile, utcnow
 from backend.tools.search import FixtureSearchTool
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -20,12 +20,17 @@ def load_fixture(name: str) -> dict[str, Any]:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if os.environ.get("RUN_LIVE") == "1":
-        return
-    skip = pytest.mark.skip(reason="live test: set RUN_LIVE=1 to run")
-    for item in items:
-        if "live" in item.keywords:
-            item.add_marker(skip)
+    gates = {
+        "live": ("RUN_LIVE", "live test: set RUN_LIVE=1 to run"),
+        "live_network": ("RUN_LIVE_NETWORK", "live network test: set RUN_LIVE_NETWORK=1 to run"),
+    }
+    for marker, (env, reason) in gates.items():
+        if os.environ.get(env) == "1":
+            continue
+        skip = pytest.mark.skip(reason=reason)
+        for item in items:
+            if item.get_closest_marker(marker) is not None:
+                item.add_marker(skip)
 
 
 @pytest.fixture
@@ -85,6 +90,11 @@ def make_finding(fid: str, **kw: Any) -> Finding:
         grade="high",
     )
     data.update(kw)
+    if "provenance" not in kw:
+        data["provenance"] = Provenance(
+            source="fixture", endpoint="fixture:studies.json", source_id=data["source_id"], url=data["source_url"],
+            retrieved_at=data["retrieved_at"], text_source="full_text",
+        )
     return Finding(**data)
 
 

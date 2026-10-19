@@ -1,8 +1,10 @@
 """Literature search interface.
 
-`SearchTool` is what the Researcher depends on. Phase 3 adds PubMed and
-Europe PMC implementations; Phase 1 ships `FixtureSearchTool`, which serves
-handwritten records from JSON so the Researcher can be tested offline.
+`SearchTool` is what the Researcher depends on. Implementations:
+- `FixtureSearchTool` (here): handwritten records from JSON, for offline tests.
+- `CompositeSearchTool` (composite.py): PubMed + Europe PMC (+ SportRxiv),
+  Crossref retraction checks and open-access full text. Build either with
+  `backend.tools.factory.build_search_tool()` (SEARCH_BACKEND=fixture|live).
 
 Contract: `search` never raises for expected failures (no results, rate
 limit, paywall, timeout). It returns a `SearchResponse` with a `state`.
@@ -15,7 +17,7 @@ import re
 from pathlib import Path
 from typing import Protocol
 
-from backend.schemas import SearchResponse, SearchState, StudyRecord
+from backend.schemas import SearchResponse, SearchState, StudyRecord, utcnow
 
 DEFAULT_FIXTURES = Path(__file__).parent / "fixtures" / "studies.json"
 
@@ -68,4 +70,9 @@ class FixtureSearchTool:
         hits = [r for score, r in sorted(scored, key=lambda x: -x[0]) if score >= needed]
         if not hits:
             return SearchResponse(query=query, state="no_results")
-        return SearchResponse(query=query, state="ok", records=hits[:max_results])
+        now = utcnow()  # stamp provenance the way a live source would
+        records = [
+            r.model_copy(update={"retrieved_at": r.retrieved_at or now, "endpoint": r.endpoint or "fixture:studies.json"})
+            for r in hits[:max_results]
+        ]
+        return SearchResponse(query=query, state="ok", records=records)
