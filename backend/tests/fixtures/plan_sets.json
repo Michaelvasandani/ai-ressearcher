@@ -1,0 +1,39 @@
+{
+  "sub_questions": [
+    {
+      "question": "Is there a dose-response relationship between weekly sets per muscle and hypertrophy in resistance-trained adults?",
+      "rationale": "Establishes whether more weekly volume produces more muscle growth.",
+      "search_terms": ["resistance training volume hypertrophy meta-analysis", "weekly sets muscle thickness trained"]
+    },
+    {
+      "question": "At what weekly set volume do hypertrophy gains plateau or diminish in trained individuals?",
+      "rationale": "Identifies the upper bound of useful volume.",
+      "search_terms": ["high volume resistance training plateau hypertrophy", "diminishing returns weekly sets muscle growth"]
+    },
+    {
+      "question": "Does the volume dose-response for hypertrophy differ between women and men?",
+      "rationale": "The user is a trained woman.",
+      "search_terms": ["sex differences resistance training volume hypertrophy", "women weekly sets muscle hypertrophy"]
+    },
+    {
+      "question": "Does weekly training frequency change hypertrophy when weekly set volume is equated?",
+      "rationale": "The user trains 4 days a week, which constrains how sets are distributed.",
+      "search_terms": ["training frequency volume equated hypertrophy meta-analysis"]
+    },
+    {
+      "question": "Is the best weekly set volume for hypertrophy something to consider?",
+      "rationale": "Duplicate-ish filler that the planner should keep but lint flags.",
+      "search_terms": ["volume"]
+    },
+    {
+      "question": "Is there a dose-response relationship between weekly sets per muscle and hypertrophy in resistance-trained adults?",
+      "rationale": "Exact duplicate, should be removed.",
+      "search_terms": ["duplicate"]
+    },
+    {
+      "question": "Do more sets per session cause more muscle damage and slower recovery in trained lifters?",
+      "rationale": "Seventh unique sub-question; the plan must be capped at six.",
+      "search_terms": ["muscle damage recovery sets per session trained"]
+    }
+  ]
+}

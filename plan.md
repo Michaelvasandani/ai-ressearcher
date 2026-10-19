@@ -109,12 +109,12 @@ class CoachAnswer(BaseModel):
 ## Phases
 
 ### Phase 1: Build the specialists (week 1)
-- [ ] Pydantic models for every handoff (above).
-- [ ] Intake with scope classifier and user profile extraction.
-- [ ] Planner returns concrete, searchable sub-questions.
-- [ ] Researcher (stubbed search for now) returns graded `Finding` records.
-- [ ] Coach Writer turns findings into a `CoachAnswer`.
-- [ ] **Test each agent alone before wiring them together.** If the planner produces vague sub-questions on its own, no orchestration will rescue it. Write fixture-based tests for each.
+- [x] Pydantic models for every handoff (above).
+- [x] Intake with scope classifier and user profile extraction.
+- [x] Planner returns concrete, searchable sub-questions.
+- [x] Researcher (stubbed search for now) returns graded `Finding` records.
+- [x] Coach Writer turns findings into a `CoachAnswer`.
+- [x] **Test each agent alone before wiring them together.** If the planner produces vague sub-questions on its own, no orchestration will rescue it. Write fixture-based tests for each.
 
 ### Phase 2: Supervisor, routing and budgets (week 1–2)
 - [ ] Model the system as a LangGraph state graph. Nodes are agents, edges are supervisor routing decisions.

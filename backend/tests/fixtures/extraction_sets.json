@@ -1,0 +1,81 @@
+{
+  "studies": [
+    {
+      "source_id": "FIXTURE-0001",
+      "relevant": true,
+      "claim": "Across 15 studies, each additional weekly set per muscle was associated with a 0.37% increase in muscle size, and 10+ weekly sets beat fewer than 5.",
+      "study_type": "meta_analysis",
+      "population": "390 mostly young untrained and recreationally trained men",
+      "sample_size": 390,
+      "effect": "+0.37% muscle size per weekly set; ES difference 0.24 for 10+ vs <5 sets",
+      "funding_conflict": false,
+      "snippet": "Each additional weekly set per muscle was associated with a 0.37% increase in muscle size."
+    },
+    {
+      "source_id": "FIXTURE-0004",
+      "relevant": true,
+      "claim": "Hypertrophy kept increasing with weekly sets but with diminishing returns per set.",
+      "study_type": "meta_analysis",
+      "population": "67 studies, n=2058",
+      "sample_size": 2058,
+      "effect": "marginal gain per set roughly halved between 10 and 20 sets",
+      "funding_conflict": null,
+      "snippet": "hypertrophy increased with weekly sets with diminishing returns; the marginal gain per set fell by roughly half between 10 and 20 sets."
+    },
+    {
+      "source_id": "FIXTURE-0010",
+      "relevant": false,
+      "claim": "Frequency does not matter when volume is equated; not about total volume.",
+      "study_type": "meta_analysis",
+      "population": "25 studies",
+      "sample_size": null,
+      "effect": null,
+      "funding_conflict": null,
+      "snippet": "With weekly volume equated, effect sizes did not differ by frequency (p=0.42)."
+    },
+    {
+      "source_id": "FIXTURE-0002",
+      "relevant": true,
+      "claim": "In trained men, 30 weekly sets increased quadriceps thickness 6.8% versus 2.1% with 6 sets over 8 weeks.",
+      "study_type": "rct",
+      "population": "34 resistance-trained men, mean training age 4.4 years",
+      "sample_size": 34,
+      "effect": "+6.8% vs +2.1% quadriceps thickness (30 vs 6 sets/week)",
+      "funding_conflict": false,
+      "snippet": "The high volume group grew a lot more muscle than everyone else."
+    },
+    {
+      "source_id": "FIXTURE-0008",
+      "relevant": false,
+      "claim": "Protein supplementation study; not about training volume.",
+      "study_type": "meta_analysis",
+      "population": "49 RCTs",
+      "sample_size": 1863,
+      "effect": null,
+      "funding_conflict": null,
+      "snippet": "Protein supplementation increased fat-free mass gains by 0.30 kg (95% CI 0.09 to 0.52)."
+    },
+    {
+      "source_id": "FIXTURE-0005",
+      "relevant": true,
+      "claim": "In untrained women, 3 sets per exercise increased muscle thickness 4.9% versus 2.4% with 1 set.",
+      "study_type": "rct",
+      "population": "28 untrained women aged 18-30",
+      "sample_size": 28,
+      "effect": "+4.9% vs +2.4% muscle thickness",
+      "funding_conflict": null,
+      "snippet": "Muscle thickness increased 4.9% with 3 sets and 2.4% with 1 set."
+    },
+    {
+      "source_id": "FIXTURE-0007",
+      "relevant": true,
+      "claim": "In rats, higher ladder-climbing volume produced greater plantaris hypertrophy.",
+      "study_type": "animal",
+      "population": "rats",
+      "sample_size": null,
+      "effect": null,
+      "funding_conflict": null,
+      "snippet": "Rats performing higher training volume on a weighted ladder-climbing protocol showed greater plantaris muscle hypertrophy than low-volume rats after 8 weeks."
+    }
+  ]
+}

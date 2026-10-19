@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evidence-coach-backend"
+version = "0.1.0"
+description = "Evidence Coach: multi-agent, citation-first training and nutrition coach"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.15",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+# The package is imported as `backend` (e.g. `from backend.schemas import Finding`)
+# so the repo root can also import it directly (Vercel functions, evals/).
+[tool.setuptools]
+package-dir = { "backend" = "." }
+packages = ["backend", "backend.agents", "backend.tools"]
+
+[tool.setuptools.package-data]
+"backend.tools" = ["fixtures/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]
+markers = [
+    "live: hits the real Anthropic API; skipped unless RUN_LIVE=1",
+]

@@ -1,0 +1,31 @@
+{
+  "status": "leaning",
+  "recommendation": "Aim for roughly 10-20 hard sets per muscle per week; more volume tends to add muscle, with smaller gains per extra set.",
+  "confidence": "moderate",
+  "why": "A meta-analysis of 15 studies found each extra weekly set added about 0.37% muscle size, and a trial in trained men found 30 sets beat 6. A larger preprint meta-regression suggests diminishing returns between 10 and 20 sets.",
+  "positions": [
+    {
+      "stance": "More weekly volume keeps producing more hypertrophy",
+      "supporting_findings": ["sq1:FIXTURE-0001", "sq1:FIXTURE-0002", "sq1:FIXTURE-9999"],
+      "evidence_grade": "moderate",
+      "best_counterargument": "Gains per set shrink at higher volumes and recovery costs rise."
+    },
+    {
+      "stance": "Gains level off around 10-20 weekly sets",
+      "supporting_findings": ["sq1:FIXTURE-0004"],
+      "evidence_grade": "low",
+      "best_counterargument": "The main support is a preprint that has not been peer reviewed."
+    },
+    {
+      "stance": "Invented position with no real support",
+      "supporting_findings": ["made-up-id"],
+      "evidence_grade": "very_low",
+      "best_counterargument": "None."
+    }
+  ],
+  "what_would_change_this": "Well-powered trials in trained women comparing 12 vs 24+ weekly sets.",
+  "applies_to_you": "As a trained woman with 3 years of training, you are closer to the trained populations studied, but most volume trials studied men.",
+  "practical_protocol": "Start at about 12 sets per muscle per week split over your 4 days, taking sets to 1-3 reps short of failure, and add sets only if progress stalls and recovery is good.",
+  "whats_new": "",
+  "cited_finding_ids": ["sq1:FIXTURE-0001", "sq1:FIXTURE-0002", "sq1:FIXTURE-0004", "not-a-real-id"]
+}

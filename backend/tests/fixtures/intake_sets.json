@@ -1,0 +1,18 @@
+{
+  "scope_category": "in_scope",
+  "scope_reason": "A resistance training volume question from a healthy adult.",
+  "scoped_question": "How many sets per muscle per week maximize muscle hypertrophy for a trained woman training 4 days a week?",
+  "profile": {
+    "goal": "hypertrophy",
+    "sex": "female",
+    "age": null,
+    "bodyweight_kg": null,
+    "training_age_years": 3,
+    "training_status": "intermediate",
+    "days_per_week": 4,
+    "session_minutes": null,
+    "equipment": null,
+    "dietary_pattern": null,
+    "notes": null
+  }
+}
