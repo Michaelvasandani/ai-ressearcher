@@ -14,6 +14,7 @@ from typing import Annotated, Literal, TypedDict
 from pydantic import Field
 
 from backend.graph.budget import Allowance, Budget, BudgetKind, Spend, add_spend
+from backend.graph.plan_review import PlanDecision
 from backend.graph.routing import Route
 from backend.graph.trace import TraceStep, append_steps
 from backend.schemas import (
@@ -51,6 +52,17 @@ class ResearchTask(Record):
     reason: str = "planned"
 
 
+class TopicReuse(Record):
+    """A researcher pass served from the topic findings store instead of searching."""
+
+    topic_key: str
+    matched_question: str
+    source_run_id: str
+    similarity: float
+    age_s: float
+    findings: int
+
+
 class PassRecord(Record):
     pass_no: int
     model: str
@@ -60,6 +72,7 @@ class PassRecord(Record):
     status: SearchStatus
     finding_ids: list[str]
     budget_exhausted: BudgetKind | None = None
+    reused: TopicReuse | None = None
 
 
 class ResearchRecord(Record):
@@ -225,7 +238,13 @@ class RunState(TypedDict, total=False):
     question: str
     profile: UserProfile | None
     budget: Budget
-    started_at: float  # epoch seconds; the wall-clock budget counts from here
+    # Epoch seconds the wall-clock budget counts from. The plan checkpoint moves it forward by the
+    # time spent waiting for the user (`waited_s`), so a run can wait for hours without timing out.
+    started_at: float
+    require_plan_approval: bool  # pause at the plan checkpoint (False: auto-approve, e.g. evals and tests)
+    plan_ready_at: float | None  # when the planner finished: the wait for approval starts here
+    waited_s: float
+    plan_decision: PlanDecision | None
 
     # Specialist outputs
     intake: Intake

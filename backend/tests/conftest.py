@@ -9,7 +9,14 @@ from typing import Any
 import pytest
 
 from backend.llm import FakeLLM
-from backend.schemas import Finding, Intake, Provenance, SubQuestion, UserProfile, utcnow
+from backend.schemas import (
+    Finding,
+    Intake,
+    Provenance,
+    SubQuestion,
+    UserProfile,
+    utcnow,
+)
 from backend.tools.search import FixtureSearchTool
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -31,6 +38,40 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         for item in items:
             if item.get_closest_marker(marker) is not None:
                 item.add_marker(skip)
+    if not os.environ.get("TEST_DATABASE_URL"):
+        skip = pytest.mark.skip(reason="postgres test: set TEST_DATABASE_URL to a throwaway database to run")
+        for item in items:
+            if item.get_closest_marker("postgres") is not None:
+                item.add_marker(skip)
+
+
+# --- Postgres (integration tests) ---------------------------------------------
+
+APP_TABLES = (
+    "run_events", "runs", "conversations", "profiles", "topic_findings", "llm_calls",
+    "checkpoint_writes", "checkpoint_blobs", "checkpoints",
+)
+
+
+@pytest.fixture(scope="session")
+def pg_url() -> str:
+    """TEST_DATABASE_URL with the migrations applied. Tables are truncated per test: use a throwaway DB."""
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("TEST_DATABASE_URL not set")
+    from backend.store.migrate import apply_migrations
+
+    apply_migrations(url)
+    return url
+
+
+@pytest.fixture
+def clean_pg(pg_url: str) -> str:
+    import psycopg
+
+    with psycopg.connect(pg_url, autocommit=True) as conn:
+        conn.execute(f"truncate {', '.join(APP_TABLES)}")
+    return pg_url
 
 
 @pytest.fixture
@@ -105,3 +146,28 @@ def sets_findings() -> list[Finding]:
         make_finding("sq1:FIXTURE-0002", study_type="rct", grade="moderate", sample_size=34),
         make_finding("sq1:FIXTURE-0004", study_type="preprint", grade="low", sample_size=2058),
     ]
+
+
+@pytest.fixture(params=["memory", pytest.param("postgres", marks=pytest.mark.postgres)])
+def open_stores(request: pytest.FixtureRequest):
+    """Returns a callable that opens the stores. Each call is like a new process: for Postgres a
+    new connection pool (and checkpointer) on the same database; for memory the same objects."""
+    if request.param == "memory":
+        from backend.store.memory import memory_stores
+
+        shared = memory_stores()
+        yield lambda: shared
+        return
+    from backend.store.postgres import connect, postgres_stores
+
+    url = request.getfixturevalue("clean_pg")
+    opened = []
+
+    def make():
+        stores = postgres_stores(url, pool=connect(url, min_size=1, max_size=4))
+        opened.append(stores)
+        return stores
+
+    yield make
+    for stores in opened:
+        stores.close()

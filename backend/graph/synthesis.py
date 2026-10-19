@@ -41,12 +41,17 @@ from backend.graph.budget import (
     SCHEMA_OVERHEAD_TOKENS,
     Allowance,
     BudgetKind,
-    MeteredLLM,
     Spend,
     remaining,
 )
 from backend.graph.nodes import GraphDeps, _clip, _err, guarded
-from backend.graph.state import DEBATE_ROUNDS, AdvocateTask, Degradation, RunState, all_findings
+from backend.graph.state import (
+    DEBATE_ROUNDS,
+    AdvocateTask,
+    Degradation,
+    RunState,
+    all_findings,
+)
 from backend.graph.supervisor import downweight_reasons
 from backend.graph.trace import StepTimer, dump
 from backend.schemas import DebateTurn, Finding, PositionMap
@@ -180,7 +185,7 @@ class SynthesisNodes:
             )
             return {"position_map": None, "pending_advocates": [], "degradations": [deg], "trace": [step]}
 
-        llm = MeteredLLM(self.deps.llm, allowance, self.deps.clock)
+        llm = self.deps.metered(allowance, state["run_id"])
         try:
             pm = MapperAgent(llm, model=route.model).run(state["intake"], findings, down)
         except Exception as e:  # MapperError, LLMError, BudgetExceeded: degrade, the writer maps itself
@@ -255,7 +260,7 @@ class SynthesisNodes:
         reducer channels and never sets `failure`."""
         task = task if isinstance(task, AdvocateTask) else AdvocateTask.model_validate(task)
         timer = StepTimer(task.run_id, "advocate")
-        llm = MeteredLLM(self.deps.llm, task.allowance, self.deps.clock)
+        llm = self.deps.metered(task.allowance, task.run_id)
         kind = "opening" if task.round == 1 else "rebuttal"
         try:
             turn = AdvocateAgent(llm, model=task.route.model).run(
@@ -374,7 +379,7 @@ class SynthesisNodes:
             )
             return {"verdict": None, "degradations": [deg], "trace": [step]}
 
-        llm = MeteredLLM(self.deps.llm, allowance, self.deps.clock)
+        llm = self.deps.metered(allowance, state["run_id"])
         try:
             verdict = JudgeAgent(llm, model=route.model).run(state["intake"], pm, findings, turns, down)
         except Exception as e:  # JudgeError, LLMError, BudgetExceeded

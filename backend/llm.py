@@ -72,6 +72,7 @@ class CallRecord(BaseModel):
     stop_reason: str | None = None
     ok: bool = True
     error: str | None = None
+    replayed: bool = False  # served from the run's call ledger after a retry: paid for once, not called again
 
 
 @dataclass

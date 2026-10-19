@@ -11,6 +11,9 @@ dependencies = [
     "anthropic>=1.15",
     "httpx>=0.27",
     "langgraph>=1.2,<2",
+    "langgraph-checkpoint-postgres>=3.0,<4",
+    "psycopg[binary]>=3.2",
+    "psycopg-pool>=3.2",
     "pydantic>=2.7",
 ]
 
@@ -21,10 +24,11 @@ dev = ["pytest>=8"]
 # so the repo root can also import it directly (Vercel functions, evals/).
 [tool.setuptools]
 package-dir = { "backend" = "." }
-packages = ["backend", "backend.agents", "backend.graph", "backend.tools"]
+packages = ["backend", "backend.agents", "backend.graph", "backend.store", "backend.tools"]
 
 [tool.setuptools.package-data]
 "backend.tools" = ["fixtures/*.json"]
+"backend.store" = ["sql/*.sql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -32,4 +36,5 @@ pythonpath = [".."]
 markers = [
     "live: hits the real Anthropic API; skipped unless RUN_LIVE=1",
     "live_network: hits PubMed / Europe PMC / Crossref; skipped unless RUN_LIVE_NETWORK=1",
+    "postgres: needs a real Postgres; skipped unless TEST_DATABASE_URL is set",
 ]

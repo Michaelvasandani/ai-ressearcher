@@ -19,7 +19,51 @@ cd backend
 .venv/bin/python -m pytest -q                                  # offline, deterministic (FakeLLM + fixtures)
 RUN_LIVE=1 .venv/bin/python -m pytest -m live -s tests/live    # real API, ~$0.30 in all (synthesis runs ~$0.05-0.11 each)
 RUN_LIVE_NETWORK=1 .venv/bin/python -m pytest -m live_network -s   # real PubMed / Europe PMC / Crossref, no LLM spend
+TEST_DATABASE_URL=postgresql://... .venv/bin/python -m pytest -m postgres   # store + resume tests on a real Postgres
 ```
+
+Tests marked `postgres` run the same store and resume tests as the in-memory default on a real
+database. They apply the migrations and **truncate the tables before each test**, so point
+`TEST_DATABASE_URL` at a throwaway database, never at Supabase production. A local one:
+
+```bash
+sudo apt-get install -y postgresql && sudo service postgresql start
+sudo -u postgres psql -c "alter user postgres password 'postgres'" -c "create database evidence_test"
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/evidence_test .venv/bin/python -m pytest -q
+```
+
+## Database (Supabase Postgres)
+
+Run state, progress events, the topic findings store, the LLM call ledger, conversations and
+profiles live in Postgres (Supabase). Without `DATABASE_URL` everything falls back to in-memory
+stores (`store.build_stores()`), which is what the default tests use.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DATABASE_URL` | unset | Supabase connection string with the **service role** (postgres user), e.g. the transaction pooler `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?sslmode=require` |
+| `DATABASE_POOL_MIN` / `DATABASE_POOL_MAX` | 1 / 5 | psycopg pool size per process (keep small on Vercel: one pool per function instance) |
+| `DATABASE_CONNECT_TIMEOUT_S` | 15 | wait for the first connection |
+
+Set up a Supabase project:
+
+1. Apply the migrations in `../supabase/migrations/`: `supabase link --project-ref <ref>` then
+   `supabase db push` (or paste the SQL into the SQL editor, or
+   `python -m backend.store.migrate "$DATABASE_URL"` from the repo root, which records the version
+   in the CLI's `supabase_migrations.schema_migrations` table).
+2. Copy the connection string (Project Settings -> Database -> Connection string). On Vercel use
+   the **transaction pooler** (port 6543); the direct connection (5432) is fine for long-lived
+   processes. Set it as `DATABASE_URL` in Vercel's environment variables.
+
+Notes:
+- The pooler does not support server-side prepared statements, so every connection uses
+  `prepare_threshold=None` and autocommit (LangGraph's `PostgresSaver.from_conn_string` prepares
+  every statement and fails behind a transaction pooler with `prepared statement "_pg3_0" already
+  exists`; tested here with pgbouncer in transaction mode).
+- RLS is enabled on every table. The backend's service role bypasses it; signed-in users may only
+  read their own runs, events, conversations and profile (policies use `auth.uid()`), and the
+  checkpoint, ledger and topic-findings tables have no policies at all.
+- The migration creates LangGraph's checkpoint tables and marks its migrations as applied, so
+  `PostgresSaver.setup()` is not needed (and only adds migrations from newer library versions).
 
 ## Search backend
 
@@ -53,6 +97,36 @@ result.position_map, result.debate, result.verdict, result.downweighted   # synt
 result.trace     # one TraceStep per node: model, tokens, cost, latency, tool calls, decision
 ```
 
+### Persistent runs: resume, plan approval, reuse
+
+```python
+from backend.graph import GraphDeps, PlanDecision, Runner
+from backend.store import build_stores   # Postgres if DATABASE_URL is set, else in-memory
+
+runner = Runner(GraphDeps(llm=AnthropicLLM(), search_tool=build_search_tool()), build_stores())
+r = runner.start(question, require_plan_approval=True)   # pauses after the planner
+r.awaiting_approval.sub_questions                         # PlanApprovalRequest for the UI
+r = runner.resume(r.run_id, PlanDecision(action="approve"))   # or action="edit", sub_questions=[...]
+runner.resume(run_id)          # after a crash / redeploy: continues from the last checkpoint
+runner.get(run_id)             # current RunResult from the checkpoint
+```
+
+- State is checkpointed after every node (durability "sync"); `resume` re-runs only unfinished
+  nodes, and parallel branches that finished before the crash are kept (LangGraph pending writes).
+- LLM calls go through a ledger keyed by (run id, hash of the request). A step retried after a
+  crash gets its recorded results back (`CallRecord.replayed`) instead of calling the API again,
+  so state spend equals what was actually paid, once.
+- Researchers check the topic findings store first (normalized topic key, Jaccard similarity >= 0.5,
+  30-day TTL) and reuse fresh findings with no search or model call; the trace step shows a
+  `findings_store` tool call (`reused` / `saved`). `Runner(..., reuse_findings=False)` turns it off
+  (e.g. for evals).
+- The plan checkpoint is a LangGraph `interrupt`; the wait is excluded from the wall-clock budget
+  (`started_at` moves forward by `waited_s`). Without `require_plan_approval` the plan is
+  auto-approved and the node is skipped. It needs a checkpointer.
+- The runs table carries status (`running`, `awaiting_approval`, `completed`, `error`) and the
+  outcome; `run_events` gets one event per trace step (gap-free `seq`, idempotent by step id) for
+  the SSE endpoint to poll.
+
 ## Layout
 
 | Path | What it is |
@@ -77,7 +151,14 @@ result.trace     # one TraceStep per node: model, tokens, cost, latency, tool ca
 | `graph/budget.py` | `Budget` (per run), `Spend`, `MeteredLLM` / `MeteredSearch` that enforce allowances and deadlines |
 | `graph/routing.py` | `ModelRouter`: Haiku extraction, Sonnet planning / mapping / debate / judging / writing, Opus only on escalation |
 | `graph/trace.py` | `TraceStep` / `ToolCall` schema and the step-numbering reducer |
-| `graph/checkpoint.py` | In-memory checkpointer and the serializer allowlist (Phase 5 plugs in Postgres) |
+| `graph/checkpoint.py` | In-memory checkpointer and the serializer allowlist (also used by the Postgres saver) |
+| `graph/plan_review.py` | Plan checkpoint payloads: `PlanApprovalRequest` (interrupt value), `PlanDecision` (approve / edit) |
+| `graph/runner.py` | `Runner`: start / resume / get runs on the stores; runs table, step events, plan-ready events |
+| `store/base.py` | Store interfaces (runs, events, findings, call ledger, conversations, profiles), `Stores`, `call_key` |
+| `store/memory.py` | In-memory stores (tests, local) |
+| `store/postgres.py` | Postgres stores + `PostgresSaver` on one pooler-safe psycopg pool |
+| `store/topics.py` | Topic keys (normalized content words) and Jaccard similarity for the findings store |
+| `store/migrate.py` | Applies `supabase/migrations/*.sql` to a Postgres (local / tests); shim for Supabase roles |
 | `tools/search.py` | `SearchTool` protocol and `FixtureSearchTool` (synthetic records in `tools/fixtures/studies.json`) |
 | `tools/composite.py` | Live `SearchTool`: sources in parallel -> dedupe -> rank -> caps -> retraction check -> full text |
 | `tools/pubmed.py` | E-utilities esearch + efetch XML: publication types, MeSH, structured abstract, DOI/PMCID, RetractionIn |

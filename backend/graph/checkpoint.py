@@ -1,8 +1,9 @@
 """Checkpointer wiring.
 
 The graph takes any LangGraph checkpointer. Tests and local runs use the
-in-memory saver; Phase 5 plugs in a Postgres (Supabase) saver built with the
-same `serializer()`, so state written by one process can be read by another.
+in-memory saver; production uses the Postgres (Supabase) saver from
+`store.postgres.postgres_checkpointer`, built with the same `serializer()`, so
+state written by one process can be read by another.
 
 The serializer allowlists our own Pydantic models for msgpack deserialization
 (LangGraph warns on, and will later block, unregistered types).
@@ -18,9 +19,9 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from pydantic import BaseModel
 
 from backend import llm, schemas
-from backend.graph import budget, routing, state, trace
+from backend.graph import budget, plan_review, routing, state, trace
 
-_STATE_MODULES: tuple[ModuleType, ...] = (schemas, llm, budget, routing, state, trace)
+_STATE_MODULES: tuple[ModuleType, ...] = (schemas, llm, budget, plan_review, routing, state, trace)
 
 
 def state_types() -> list[tuple[str, str]]:

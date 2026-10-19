@@ -12,6 +12,12 @@ A `Budget` is passed per run. It is enforced at three levels:
 3. Searches: `MeteredSearch` caps searches per sub-question and stops at the
    deadline.
 
+With a `CallLedger` (Phase 5), every completed call is recorded under a key
+derived from the request. When a step is retried after a crash, a request the
+ledger has already seen returns the recorded result: the provider is not
+called (or paid) twice, and the call's cost reaches the run's spend once, when
+the retried step's writes are checkpointed.
+
 A refused call raises `BudgetExceeded` (an `LLMError`, so agents treat it like
 any failed call); nodes turn it into a degradation or a structured failure.
 Nothing here lets a budget problem escape the graph as an exception.
@@ -19,6 +25,7 @@ Nothing here lets a budget problem escape the graph as an exception.
 
 from __future__ import annotations
 
+import logging
 import math
 import threading
 import time
@@ -32,9 +39,12 @@ from backend import config
 from backend.graph.trace import ToolCall
 from backend.llm import CallRecord, LLMClient, LLMError, LLMRequest, LLMResult
 from backend.schemas import Record, SearchResponse
+from backend.store.base import CallLedger, call_key
+from backend.store.models import LedgerEntry
 from backend.tools.search import SearchTool
 
 T = TypeVar("T", bound=BaseModel)
+log = logging.getLogger(__name__)
 
 BudgetKind = Literal["max_sub_questions", "max_searches", "max_tokens", "max_usd", "wall_clock"]
 
@@ -177,10 +187,20 @@ class MeteredLLM:
     Thread-safe; each parallel researcher gets its own instance.
     """
 
-    def __init__(self, inner: LLMClient, allowance: Allowance, clock: Callable[[], float] = time.time):
+    def __init__(
+        self,
+        inner: LLMClient,
+        allowance: Allowance,
+        clock: Callable[[], float] = time.time,
+        *,
+        ledger: CallLedger | None = None,
+        run_id: str | None = None,
+    ):
         self.inner = inner
         self.allowance = allowance
         self.clock = clock
+        self.ledger = ledger if run_id else None
+        self.run_id = run_id
         self.records: list[CallRecord] = []
         self.exhausted: BudgetKind | None = None
         self._lock = threading.Lock()
@@ -215,7 +235,35 @@ class MeteredLLM:
             request = replace(request, max_tokens=int(cap))
         return request
 
+    def _replay(self, key: str, request: LLMRequest[T]) -> LLMResult[T] | None:
+        assert self.ledger is not None and self.run_id is not None
+        try:
+            entry = self.ledger.get(self.run_id, key)
+            if entry is None:
+                return None
+            output = request.output_type.model_validate_json(entry.output_json)
+        except Exception:  # a ledger outage or a stale entry: make the call
+            log.warning("call ledger lookup failed for run %s", self.run_id, exc_info=True)
+            return None
+        return LLMResult(output=output, record=entry.record.model_copy(update={"replayed": True}))
+
+    def _remember(self, key: str, result: LLMResult[T]) -> None:
+        assert self.ledger is not None and self.run_id is not None
+        try:
+            self.ledger.put(
+                LedgerEntry(
+                    run_id=self.run_id, call_key=key, record=result.record, output_json=result.output.model_dump_json()
+                )
+            )
+        except Exception:  # the call succeeded; losing its ledger entry only loses idempotency
+            log.warning("call ledger write failed for run %s", self.run_id, exc_info=True)
+
     def complete(self, request: LLMRequest[T]) -> LLMResult[T]:
+        key = call_key(request) if self.ledger is not None else None
+        if key is not None and (replayed := self._replay(key, request)) is not None:
+            with self._lock:
+                self.records.append(replayed.record)
+            return replayed
         with self._lock:
             request = self._admit(request)
         try:
@@ -225,6 +273,8 @@ class MeteredLLM:
                 with self._lock:
                     self.records.append(e.record)
             raise
+        if key is not None:
+            self._remember(key, result)
         with self._lock:
             self.records.append(result.record)
         return result

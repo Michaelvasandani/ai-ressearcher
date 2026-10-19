@@ -3,7 +3,7 @@
     START -> intake --out of scope--> referral -> END
                |
                v
-            planner -> dispatch ==Send x N==> researcher -> review --send back (once)==> researcher
+            planner [-> plan_checkpoint (interrupt)] -> dispatch ==Send x N==> researcher -> review --send back (once)==> researcher
                                                               |
                                                               v
             personalize -> position_mapper --consensus / debate unaffordable--> judge -> writer
@@ -24,12 +24,11 @@ Synthesis (graph/synthesis.py) is wired by `_wire_synthesis`, entered at
 `SYNTHESIS_ENTRY`. It never fails the run: without a position map the writer
 works from findings, without a verdict from the position map.
 
-Extension points:
-- Phase 5 (plan checkpoint, persistence): the plan-approval interrupt sits on
-  the planner -> dispatch edge (`dispatch` reads `sub_questions`, so an edited
-  plan only has to replace that field). The checkpointer is a parameter; use
-  `checkpoint.memory_checkpointer()` locally or a Postgres saver built with
-  `checkpoint.serializer()`.
+Persistence (Phase 5): the checkpointer is a parameter; use
+`checkpoint.memory_checkpointer()` locally or `store.postgres.postgres_checkpointer`.
+With `require_plan_approval`, `plan_checkpoint` interrupts between the planner
+and dispatch until `Command(resume=PlanDecision)`; without it the edge skips the
+node (auto-approve). `graph/runner.py` drives runs with stores and events.
 """
 
 from __future__ import annotations
@@ -39,10 +38,11 @@ import uuid
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
+from langgraph.types import Command, Send
 
 from backend.graph.budget import Budget, Spend
 from backend.graph.nodes import GraphDeps, Nodes
+from backend.graph.plan_review import PlanApprovalRequest, PlanDecision
 from backend.graph.state import (
     DEBATE_ROUNDS,
     AnswerReview,
@@ -62,6 +62,7 @@ from backend.schemas import (
     PositionMap,
     Record,
     ResearchPlan,
+    SubQuestion,
     UserProfile,
     Verdict,
 )
@@ -82,6 +83,12 @@ def after_intake(state: RunState) -> str:
 
 
 def after_planner(state: RunState) -> str:
+    if state.get("failure"):
+        return "finalize"
+    return "plan_checkpoint" if state.get("require_plan_approval") else "dispatch"
+
+
+def after_plan_checkpoint(state: RunState) -> str:
     return "finalize" if state.get("failure") else "dispatch"
 
 
@@ -166,6 +173,7 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
     g.add_node("intake", nodes.intake)
     g.add_node("referral", nodes.referral)
     g.add_node("planner", nodes.planner)
+    g.add_node("plan_checkpoint", nodes.plan_checkpoint)
     g.add_node("dispatch", nodes.dispatch)
     g.add_node("researcher", nodes.researcher)
     g.add_node("review", nodes.review)
@@ -176,7 +184,8 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
     g.add_edge(START, "intake")
     g.add_conditional_edges("intake", after_intake, ["planner", "referral", "finalize"])
     g.add_edge("referral", END)
-    g.add_conditional_edges("planner", after_planner, ["dispatch", "finalize"])
+    g.add_conditional_edges("planner", after_planner, ["plan_checkpoint", "dispatch", "finalize"])
+    g.add_conditional_edges("plan_checkpoint", after_plan_checkpoint, ["dispatch", "finalize"])
     g.add_conditional_edges("dispatch", fan_out, ["researcher", "review", "finalize"])
     g.add_edge("researcher", "review")
     g.add_conditional_edges("review", after_review, ["researcher", SYNTHESIS_ENTRY, "finalize"])
@@ -192,10 +201,15 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
 
 class RunResult(Record):
     run_id: str
-    outcome: RunOutcome
+    # None only while the run waits at the plan checkpoint (`awaiting_approval` is set).
+    outcome: RunOutcome | None
+    awaiting_approval: PlanApprovalRequest | None = None
     answer: CoachAnswer | None = None
     intake: Intake | None = None
     plan: ResearchPlan | None = None
+    sub_questions: list[SubQuestion] = []
+    plan_decision: PlanDecision | None = None
+    waited_s: float = 0.0
     findings: list[Finding] = []
     downweighted: dict[str, str] = {}
     position_map: PositionMap | None = None
@@ -207,18 +221,26 @@ class RunResult(Record):
     trace: list[TraceStep] = []
 
     @classmethod
-    def from_state(cls, run_id: str, state: dict[str, Any]) -> "RunResult":
-        outcome = state.get("outcome") or RunOutcome(
-            status="failed",
-            message="run ended without an outcome",
-            failure=RunFailure(reason="internal_error", node="graph", message="run ended without an outcome"),
-        )
+    def from_state(
+        cls, run_id: str, state: dict[str, Any], awaiting: PlanApprovalRequest | None = None
+    ) -> "RunResult":
+        outcome = state.get("outcome")
+        if outcome is None and awaiting is None:
+            outcome = RunOutcome(
+                status="failed",
+                message="run ended without an outcome",
+                failure=RunFailure(reason="internal_error", node="graph", message="run ended without an outcome"),
+            )
         return cls(
             run_id=run_id,
             outcome=outcome,
+            awaiting_approval=awaiting,
             answer=state.get("answer"),
             intake=state.get("intake"),
             plan=state.get("plan"),
+            sub_questions=state.get("sub_questions") or [],
+            plan_decision=state.get("plan_decision"),
+            waited_s=state.get("waited_s") or 0.0,
             findings=all_findings(state),  # type: ignore[arg-type]
             downweighted=state.get("downweighted") or {},
             position_map=state.get("position_map"),
@@ -237,6 +259,7 @@ def initial_state(
     budget: Budget,
     run_id: str,
     started_at: float,
+    require_plan_approval: bool = False,
 ) -> RunState:
     return {
         "run_id": run_id,
@@ -244,6 +267,10 @@ def initial_state(
         "profile": profile,
         "budget": budget,
         "started_at": started_at,
+        "require_plan_approval": require_plan_approval,
+        "plan_ready_at": None,
+        "waited_s": 0.0,
+        "plan_decision": None,
         "send_backs_used": 0,
         "writer_attempts": 0,
         "downweighted": {},
@@ -262,17 +289,45 @@ def run_research(
     budget: Budget | None = None,
     run_id: str | None = None,
     checkpointer: Any = None,
+    require_plan_approval: bool = False,
 ) -> RunResult:
-    """Run one question through the graph. Never raises: failures come back in `outcome`."""
+    """Run one question through the graph. Never raises: failures come back in `outcome`.
+
+    With `require_plan_approval` (needs a checkpointer) the result comes back with
+    `awaiting_approval` set; continue with `resume_research(..., decision=...)`.
+    For runs with stores and progress events use `graph.runner.Runner`.
+    """
     run_id = run_id or uuid.uuid4().hex
-    config = {"configurable": {"thread_id": run_id}, "recursion_limit": RECURSION_LIMIT}
+    state = initial_state(question, profile, budget or Budget(), run_id, deps.clock(), require_plan_approval)
+    return _invoke(build_graph(deps, checkpointer=checkpointer), run_id, state, checkpointer)
+
+
+def resume_research(
+    run_id: str,
+    *,
+    deps: GraphDeps,
+    checkpointer: Any,
+    decision: PlanDecision | dict[str, Any] | None = None,
+) -> RunResult:
+    """Continue a run from its checkpoint: after a crash (no decision) or at the plan checkpoint."""
     graph = build_graph(deps, checkpointer=checkpointer)
-    state = initial_state(question, profile, budget or Budget(), run_id, deps.clock())
+    if decision is None:
+        graph_input: Any = None
+    else:
+        graph_input = Command(resume=decision.model_dump(mode="json") if isinstance(decision, PlanDecision) else decision)
+    return _invoke(graph, run_id, graph_input, checkpointer)
+
+
+def _invoke(graph: Any, run_id: str, graph_input: Any, checkpointer: Any) -> RunResult:
+    from backend.graph.runner import awaiting_request
+
+    config = {"configurable": {"thread_id": run_id}, "recursion_limit": RECURSION_LIMIT}
+    durability = "sync" if checkpointer is not None else "exit"
     try:
-        final = graph.invoke(state, config)
+        final = graph.invoke(graph_input, config, durability=durability)
     except Exception as e:  # wiring bug or checkpointer outage: fail cleanly with what we have
         log.exception("run %s crashed", run_id)
-        partial: dict[str, Any] = dict(state)
+        partial: dict[str, Any] = dict(graph_input) if isinstance(graph_input, dict) else {}
         if checkpointer is not None:
             try:
                 partial = dict(graph.get_state(config).values) or partial
@@ -286,4 +341,7 @@ def run_research(
             degradations=partial.get("degradations") or [],
         )
         return RunResult.from_state(run_id, partial)
+    if checkpointer is not None:
+        snapshot = graph.get_state(config)
+        return RunResult.from_state(run_id, dict(snapshot.values), awaiting_request(snapshot))
     return RunResult.from_state(run_id, final)

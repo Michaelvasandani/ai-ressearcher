@@ -139,11 +139,11 @@ class CoachAnswer(BaseModel):
 - [x] **Personalization through filtering:** findings whose study population doesn't match the user's profile are down-weighted, and the trace records which ones and why. No invented individual prescriptions.
 
 ### Phase 5: Persist run state in Redis (week 3–4)
-- [ ] Write graph state after every node: run ID, plan, completed sub-questions, findings, positions, debate turns, cumulative token and dollar spend.
-- [ ] A crashed or redeployed process **resumes instead of replaying**. That is the difference between a demo and a service.
-- [ ] Idempotency: re-entering a completed node returns the cached result.
-- [ ] **Topic findings store:** findings are kept by topic across runs. Follow-up questions and overlapping questions reuse them, which cuts cost and latency.
-- [ ] **Plan checkpoint (human in the loop):** use LangGraph `interrupt` so the user can approve or edit the research plan in the UI before searching. The run can wait for hours and resume from Redis.
+- [x] Write graph state after every node: run ID, plan, completed sub-questions, findings, positions, debate turns, cumulative token and dollar spend.
+- [x] A crashed or redeployed process **resumes instead of replaying**. That is the difference between a demo and a service.
+- [x] Idempotency: re-entering a completed node returns the cached result.
+- [x] **Topic findings store:** findings are kept by topic across runs. Follow-up questions and overlapping questions reuse them, which cuts cost and latency.
+- [x] **Plan checkpoint (human in the loop):** use LangGraph `interrupt` so the user can approve or edit the research plan in the UI before searching. The run can wait for hours and resume from Redis.
 
 ### Phase 6: API with citations, streaming and traces (week 4)
 - [ ] `POST /research` returns a run ID immediately.

@@ -13,7 +13,12 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, get_args
+
+from langgraph.errors import GraphBubbleUp
+from langgraph.types import interrupt
+from pydantic import ValidationError
 
 from backend.agents.intake import IntakeAgent
 from backend.agents.planner import PlannerAgent
@@ -30,6 +35,7 @@ from backend.graph.budget import (
     remaining,
     research_pool,
 )
+from backend.graph.plan_review import PlanApprovalRequest, PlanDecision
 from backend.graph.routing import ModelRouter
 from backend.graph.state import (
     MAX_SEND_BACKS,
@@ -42,12 +48,32 @@ from backend.graph.state import (
     RunFailure,
     RunOutcome,
     RunState,
+    TopicReuse,
     all_findings,
 )
-from backend.graph.supervisor import provenance_gate, review_answer, review_research
-from backend.graph.trace import StepTimer
+from backend.graph.supervisor import (
+    NON_HUMAN,
+    provenance_gate,
+    review_answer,
+    review_research,
+)
+from backend.graph.trace import StepTimer, ToolCall
 from backend.llm import LLMClient
-from backend.schemas import DroppedRecord, ResearchResult, SearchStatus
+from backend.schemas import (
+    DroppedRecord,
+    Finding,
+    ResearchResult,
+    SearchStatus,
+    SubQuestion,
+)
+from backend.store.base import CallLedger, FindingsStore
+from backend.store.models import TopicFindings, TopicHit
+from backend.store.topics import (
+    DEFAULT_MIN_SIMILARITY,
+    DEFAULT_TTL_DAYS,
+    topic_key,
+    topic_tokens,
+)
 from backend.tools.search import SearchTool
 
 log = logging.getLogger(__name__)
@@ -64,6 +90,15 @@ class GraphDeps:
     search_tool: SearchTool
     router: ModelRouter = field(default_factory=ModelRouter)
     clock: Callable[[], float] = time.time  # epoch seconds; injectable for wall-clock tests
+    # Phase 5 persistence (both optional; None = off):
+    ledger: CallLedger | None = None  # keyed LLM call ledger: a retried step does not pay twice
+    findings_store: FindingsStore | None = None  # topic findings, reused across runs while fresh
+    findings_ttl_s: float = DEFAULT_TTL_DAYS * 86_400
+    findings_min_similarity: float = DEFAULT_MIN_SIMILARITY
+
+    def metered(self, allowance: Any, run_id: str) -> MeteredLLM:
+        """A MeteredLLM for one node, recording calls in the run's ledger when there is one."""
+        return MeteredLLM(self.llm, allowance, self.clock, ledger=self.ledger, run_id=run_id)
 
 
 def _err(e: BaseException) -> str:
@@ -83,6 +118,8 @@ def guarded(node: str) -> Callable[[Callable[..., dict[str, Any]]], Callable[...
         def wrapper(self: "Nodes", state: RunState) -> dict[str, Any]:
             try:
                 return fn(self, state)
+            except GraphBubbleUp:  # interrupts are control flow, not failures
+                raise
             except Exception as e:  # a bug must end the run cleanly, not crash it
                 log.exception("node %s crashed", node)
                 timer = StepTimer(state.get("run_id", "?"), node)
@@ -110,7 +147,7 @@ class Nodes:
 
     def _metered(self, state: RunState) -> MeteredLLM:
         allowance = remaining(state["budget"], state.get("spend") or Spend(), state["started_at"])
-        return MeteredLLM(self.deps.llm, allowance, self.deps.clock)
+        return self.deps.metered(allowance, state["run_id"])
 
     @staticmethod
     def _failure(reason: FailureReason, node: str, e: BaseException, llm: MeteredLLM) -> RunFailure:
@@ -208,13 +245,64 @@ class Nodes:
             output=plan,
             llm_calls=llm.records,
             status="degraded" if dropped else "ok",
-            decision="dispatch",
+            decision="plan_checkpoint" if state.get("require_plan_approval") else "dispatch",
         )
         return {
             "plan": plan,
             "sub_questions": selected,
+            "plan_ready_at": self._now(),
             "degradations": degradations,
             "spend": llm.spend,
+            "trace": [step],
+        }
+
+    # --- plan checkpoint (human in the loop) --------------------------------
+
+    @guarded("plan_checkpoint")
+    def plan_checkpoint(self, state: RunState) -> dict[str, Any]:
+        """Pause for the user to approve or edit the sub-questions, then resume.
+
+        LangGraph re-runs this node from the top on resume, so nothing before
+        `interrupt` may have side effects. The wait is measured from the planner's
+        `plan_ready_at` and excluded from the wall-clock budget by moving `started_at`.
+        """
+        timer = StepTimer(state["run_id"], "plan_checkpoint")
+        cap = state["budget"].max_sub_questions
+        plan = state["plan"]
+        current = state["sub_questions"]
+        request = PlanApprovalRequest(
+            run_id=state["run_id"],
+            question=plan.question,
+            sub_questions=current,
+            dropped=plan.sub_questions[len(current):],
+            max_sub_questions=cap,
+        )
+        error: str | None = None
+        while True:  # each invalid decision asks again (one interrupt per answer)
+            raw = interrupt(request.model_copy(update={"error": error}).model_dump(mode="json"))
+            try:
+                decision = raw if isinstance(raw, PlanDecision) else PlanDecision.model_validate(raw)
+                selected = decision.apply(current, cap)
+                break
+            except (ValidationError, ValueError) as e:
+                error = _err(e)
+
+        now = self._now()
+        waited = max(0.0, now - (state.get("plan_ready_at") or now))
+        edited = decision.action == "edit"
+        step = timer.step(
+            agent="human",
+            input_summary=f"{len(current)} sub-questions for review",
+            output_summary=(f"plan edited: {len(selected)} sub-questions" if edited else "plan approved")
+            + f"; waited {waited:.0f}s (excluded from the wall-clock budget)",
+            output={"decision": decision.model_dump(mode="json"), "sub_questions": [sq.id for sq in selected]},
+            decision="dispatch",
+        )
+        return {
+            "sub_questions": selected,
+            "plan_decision": decision,
+            "started_at": state["started_at"] + waited,
+            "waited_s": (state.get("waited_s") or 0.0) + waited,
             "trace": [step],
         }
 
@@ -277,9 +365,13 @@ class Nodes:
         """One researcher pass on one sub-question. Runs in parallel with its siblings, so it
         only writes reducer channels and never sets `failure`."""
         task = task if isinstance(task, ResearchTask) else ResearchTask.model_validate(task)
+        if task.pass_no == 1 and self.deps.findings_store is not None:
+            reused = self._reuse_topic_findings(task)
+            if reused is not None:
+                return reused
         sq = task.sub_question
         timer = StepTimer(task.run_id, "researcher")
-        llm = MeteredLLM(self.deps.llm, task.allowance, self.deps.clock)
+        llm = self.deps.metered(task.allowance, task.run_id)
         search = MeteredSearch(self.deps.search_tool, task.max_searches, task.allowance.deadline, self.deps.clock)
         error: str | None = None
         try:
@@ -342,6 +434,7 @@ class Nodes:
                 )
             )
         state_ = result.status.state
+        store_calls = self._save_topic_findings(task, result)
         step = timer.step(
             agent="researcher",
             sub_question_id=sq.id,
@@ -354,7 +447,7 @@ class Nodes:
             f"({len(executed)} searches)",
             output=result,
             llm_calls=llm.records,
-            tool_calls=search.calls,
+            tool_calls=search.calls + store_calls,
             status="ok" if state_ == "ok" else ("degraded" if result.findings else "failed"),
             error=error or ("; ".join(result.status.errors)[:500] or None),
             decision="review",
@@ -365,6 +458,102 @@ class Nodes:
             "degradations": degradations,
             "trace": [step],
         }
+
+    # --- topic findings store -----------------------------------------------
+
+    def _store_now(self) -> datetime:
+        return datetime.fromtimestamp(self._now(), timezone.utc)
+
+    def _reuse_topic_findings(self, task: ResearchTask) -> dict[str, Any] | None:
+        """Serve a first pass from fresh findings on the same topic, if the store has them.
+
+        Reused findings are re-keyed to this sub-question; retracted or provenance-less ones
+        are never reused, and a hit with no human finding is researched afresh instead.
+        """
+        sq = task.sub_question
+        store = self.deps.findings_store
+        assert store is not None
+        timer = StepTimer(task.run_id, "researcher")
+        try:
+            hit = store.lookup(
+                sq.question,
+                now=self._store_now(),
+                max_age_s=self.deps.findings_ttl_s,
+                min_similarity=self.deps.findings_min_similarity,
+            )
+        except Exception:  # the store is an optimization; research normally without it
+            log.warning("findings store lookup failed for %s", sq.id, exc_info=True)
+            return None
+        if hit is None:
+            return None
+        findings = reusable_findings(hit, sq)
+        if not any(f.study_type not in NON_HUMAN for f in findings):
+            return None
+
+        reuse = TopicReuse(
+            topic_key=hit.entry.topic_key,
+            matched_question=hit.entry.question,
+            source_run_id=hit.entry.run_id,
+            similarity=round(hit.similarity, 3),
+            age_s=round(hit.age_s, 1),
+            findings=len(findings),
+        )
+        status = SearchStatus(
+            sub_question_id=sq.id,
+            state="ok",
+            findings_kept=len(findings),
+            abstract_only=[
+                f.source_id for f in findings if f.provenance is not None and f.provenance.text_source == "abstract"
+            ],
+        )
+        result = ResearchResult(sub_question_id=sq.id, findings=findings, status=status)
+        record = ResearchRecord(
+            sub_question_id=sq.id,
+            findings=findings,
+            passes=[
+                PassRecord(
+                    pass_no=task.pass_no, model="none", escalated=False, queries=[], status=status,
+                    finding_ids=[f.id for f in findings], reused=reuse,
+                )
+            ],
+        )
+        detail = (
+            f"reused {len(findings)} findings from run {reuse.source_run_id} "
+            f"(similarity {reuse.similarity:.2f}, age {reuse.age_s / 3600:.1f}h)"
+        )
+        step = timer.step(
+            agent="researcher",
+            sub_question_id=sq.id,
+            attempt=task.pass_no,
+            route_reason="fresh findings on this topic in the findings store: no search, no model call",
+            input_summary=f"{sq.id}: {_clip(sq.question)} | topic: {reuse.topic_key}",
+            output_summary=detail,
+            output=result,
+            tool_calls=[
+                ToolCall(tool="findings_store", input=reuse.topic_key, state="reused", results=len(findings), message=detail)
+            ],
+            decision="review",
+        )
+        return {"research": {sq.id: record}, "spend": Spend(), "trace": [step]}
+
+    def _save_topic_findings(self, task: ResearchTask, result: ResearchResult) -> list[ToolCall]:
+        """Keep a searched pass's findings by topic for later runs. Never fails the pass."""
+        store = self.deps.findings_store
+        findings = [f for f in result.findings if not f.retracted and f.provenance_problem() is None]
+        if store is None or not any(f.study_type not in NON_HUMAN for f in findings):
+            return []
+        sq = task.sub_question
+        key = topic_key(sq.question)
+        entry = TopicFindings(
+            topic_key=key, tokens=topic_tokens(sq.question), question=sq.question, sub_question_id=sq.id,
+            findings=findings, run_id=task.run_id, created_at=self._store_now(),
+        )
+        try:
+            store.save(entry)
+        except Exception as e:
+            log.warning("findings store save failed for %s", sq.id, exc_info=True)
+            return [ToolCall(tool="findings_store", input=key, state="error", message=_err(e))]
+        return [ToolCall(tool="findings_store", input=key, state="saved", results=len(findings))]
 
     # --- supervisor review --------------------------------------------------
 
@@ -631,3 +820,15 @@ class Nodes:
             decision="end",
         )
         return {"outcome": outcome, "trace": [step]}
+
+
+def reusable_findings(hit: TopicHit, sq: SubQuestion) -> list[Finding]:
+    """A topic hit's findings, re-keyed to `sq`; retracted or provenance-less ones are left out."""
+    out: list[Finding] = []
+    seen: set[str] = set()
+    for f in hit.entry.findings:
+        if f.retracted or f.provenance_problem() is not None or f.source_id in seen:
+            continue
+        seen.add(f.source_id)
+        out.append(f.model_copy(update={"id": f"{sq.id}:{f.source_id}", "sub_question_id": sq.id}))
+    return out
