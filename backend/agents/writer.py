@@ -71,12 +71,20 @@ Rules:
 must come from a finding, and is checked by code against the findings you cite. Cite inline: put \
 the exact finding id in square brackets at the end of the sentence it supports, e.g. \
 "... about 0.37% more growth per weekly set [sq1:PMID:123]." Several ids go in one bracket, \
-separated by semicolons. Every sentence of recommendation, why and whats_new needs a citation; \
-in the other fields, any sentence with a number needs one. Use a number only if a finding you \
-cite in that sentence states it (write numbers as digits, as the finding gives them; do not \
-convert units, add up studies or compute new numbers). Numbers from the user's own profile or \
-question need no citation. Also list the ids you rely on in cited_finding_ids, and in each \
+separated by semicolons. Also list the ids you rely on in cited_finding_ids, and in each \
 position's supporting_findings. Use the exact ids given; never invent one.
+- Citations are checked sentence by sentence, so:
+  - Every sentence of recommendation, why and whats_new ends with a citation. That includes \
+sentences that appraise the evidence (a trial was small, a population differs, the evidence is \
+thin, why confidence is low): cite the findings they are about.
+  - In practical_protocol, applies_to_you and what_would_change_this, every sentence that \
+contains a number (digits, or a spelled number before a unit such as "two sessions") cites the \
+finding that states that number, even if you cited it in another field.
+  - Use a number only if a finding you cite in that sentence states it. Write it as the finding \
+does. Never compute a number: no converting a per-kg dose into grams for the user's weight, no \
+unit conversions, sums, differences or new roundings. If advice would need a calculation, give it \
+the way the finding does (e.g. "1.6 g per kg of body weight").
+  - Numbers from the user's own profile or question need no citation.
 - Weigh evidence by grade: meta-analyses and well-powered trials over single small trials. \
 Preprints and animal studies may support a point but never carry the recommendation alone.
 - status: consensus when the credible evidence points one way (a weaker side with only low or \

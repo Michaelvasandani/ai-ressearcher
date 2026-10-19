@@ -16,7 +16,7 @@ The API key is read from `ANTHROPIC_API_KEY`, falling back to `ANTROPIC_API_KEY`
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q                                  # offline, deterministic (FakeLLM + fixtures)
+.venv/bin/python -m pytest -q                                  # offline, deterministic (FakeLLM + fixtures): 324 passed, 57 skipped
 RUN_LIVE=1 .venv/bin/python -m pytest -m live -s tests/live    # real API, ~$0.30 in all (synthesis runs ~$0.05-0.11 each)
 RUN_LIVE_NETWORK=1 .venv/bin/python -m pytest -m live_network -s   # real PubMed / Europe PMC / Crossref, no LLM spend
 TEST_DATABASE_URL=postgresql://... .venv/bin/python -m pytest -m postgres   # store, resume and API tests on a real Postgres
@@ -29,8 +29,11 @@ database. They apply the migrations and **truncate the tables before each test**
 ```bash
 sudo apt-get install -y postgresql && sudo service postgresql start
 sudo -u postgres psql -c "alter user postgres password 'postgres'" -c "create database evidence_test"
-TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/evidence_test .venv/bin/python -m pytest -q
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/evidence_test .venv/bin/python -m pytest -q   # 371 passed
 ```
+
+The eval harness (golden set, judges, CI gate, frontier) lives in `../evals/` (see its README);
+its offline tests are `tests/test_evals.py`. CI: `../.github/workflows/ci.yml`.
 
 ## Database (Supabase Postgres)
 
@@ -156,7 +159,7 @@ TODO: JWKS verification for Supabase projects on asymmetric signing keys; rate l
 ### Citation validation (the answer gate)
 
 The graph runs `validate_citations` after every writer draft (`writer -> validate_citations ->
-check_answer`). It is deterministic code (`backend/citations.py`):
+[repair_citations -> validate_citations] -> check_answer`). The gate itself is deterministic code (`backend/citations.py`):
 
 - The writer cites inline with finding ids (`... 0.37% per set [sq1:PMID:123].`); code renumbers
   them to `[n]` markers, and `[n]` points at `answer.cited_finding_ids[n-1]` (the UI's chips).
@@ -170,10 +173,23 @@ check_answer`). It is deterministic code (`backend/citations.py`):
   match exactly. Numbers from the user's profile or question need no finding. Position stances are
   checked against their `supporting_findings`, counterarguments against any finding the answer cites.
   Labels (`P1`, `position 2`), ordinals and `1RM` are not quantities.
-- On failure the problems go back to the writer as feedback through the run's single send-back,
-  escalated to Opus. If the send-back is already used (a research re-pass) or the rewrite fails
-  again, the run fails cleanly: `outcome.failure.reason = "citations_failed"`, no answer is
-  returned, the findings and the report (`GET /research/{id}` -> `citations.issues`) are.
+- On failure, cheapest fix first, and every fixed draft goes through the same gate again:
+  1. **Autofix** (deterministic, inside `validate_citations`): an advice-field sentence that cites
+     nothing and whose numbers all appear in one study the answer already cites gets that citation
+     (`citations.autofix_citations`). Nothing else is touched; the result is a new report
+     (`stage="autofix"`).
+  2. **Citation repair** (`agents/citation_repair.py`, Sonnet, `repair_citations` node): once per
+     draft, when citations are the only problem, one call gets the failing fields (text fields,
+     position stances / counterarguments), the gate's problems and the relevant findings, and
+     returns those fields with citations fixed or unsupported numbers removed. It does **not** use
+     the run's send-back. Report `stage="repaired"`.
+  3. **Escalated rewrite**: the problems go back to the writer through the run's single send-back,
+     escalated to Opus. If the send-back is already used (a research re-pass) or the rewrite fails
+     again, the run fails cleanly: `outcome.failure.reason = "citations_failed"`, no answer is
+     returned, the findings and the report (`GET /research/{id}` -> `citations.issues`) are.
+- Phase 7 measured this on the eval smoke set: before, 0 of 8 first drafts passed and 3 of 4 runs
+  failed with `citations_failed`; after (tighter writer prompt + autofix + repair), 6 of 8 replayed
+  first drafts passed, all 4 runs answered with no Opus rewrite. See `../evals/README.md`.
 
 ### Time-travel forks
 
@@ -292,7 +308,8 @@ in 7 one-superstep slices through `/internal/runs/{id}/advance` and changed only
 | `agents/advocate.py` | Advocate: one position, one round -> `DebateTurn`; claims without valid finding ids are rejected |
 | `agents/judge.py` | Judge: positions + debate + graded findings -> `Verdict`; code caps confidence and status |
 | `agents/writer.py` | Findings (+ optional PositionMap / Verdict) -> `CoachAnswer`; strips unknown ids, adds disclaimer |
-| `graph/builder.py` | LangGraph `StateGraph`: intake -> (referral) -> planner -> dispatch -> researchers (Send fan-out) -> review -> personalize -> position_mapper -> (advocates x2 rounds) -> judge -> writer -> validate_citations -> check_answer -> finalize; `run_research` |
+| `agents/citation_repair.py` | Citation-only repair of a draft that failed the gate (Sonnet, once per draft, no send-back) |
+| `graph/builder.py` | LangGraph `StateGraph`: intake -> (referral) -> planner -> dispatch -> researchers (Send fan-out) -> review -> personalize -> position_mapper -> (advocates x2 rounds) -> judge -> writer -> validate_citations (-> repair_citations) -> check_answer -> finalize; `run_research` |
 | `graph/synthesis.py` | Personalize, position mapper, advocate, debate review and judge nodes; per-stage budget checks with reserves |
 | `graph/state.py` | `RunState` (typed, reducers for parallel writes), research records, reviews, degradations, `RunOutcome` |
 | `graph/nodes.py` | One node per agent / supervisor decision; meters spend, appends one trace step, never raises |
@@ -306,7 +323,7 @@ in 7 one-superstep slices through `/internal/runs/{id}/advance` and changed only
 | `graph/progress.py` | One UI line per trace step ("Planned 5 sub-questions", "PubMed: 23 studies → 9 kept") for the SSE stream |
 | `graph/fork.py` | Time-travel: fork point in the checkpoint history, state copy for the new run, `AnswerDiff` |
 | `graph/overrides.py` | `StepOverride` (prompt addendum / model / tool result) scoped to the forked step; `StaticSearchTool` |
-| `citations.py` | Citation gate: sentence split, number extraction and matching, `[id]` -> `[n]` numbering, `validate_answer` -> `CitationReport` |
+| `citations.py` | Citation gate: sentence split, number extraction and matching, `[id]` <-> `[n]` numbering, `validate_answer` -> `CitationReport`, `autofix_citations` |
 | `api/app.py` | FastAPI app factory and routes (`create_app(Services)`; `create_app()` builds from the environment) |
 | `api/sse.py` | SSE generator polling `run_events` (Last-Event-ID, keep-alives, `end`) |
 | `api/worker.py` | `Worker`: one slice under a lease; the reaper query |

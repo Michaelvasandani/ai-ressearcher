@@ -266,13 +266,15 @@ class RunState(TypedDict, total=False):
     debate_rounds: int  # rounds run so far; never more than DEBATE_ROUNDS
     reviews: Annotated[list[ReviewReport], operator.add]
     answer_reviews: Annotated[list[AnswerReview], operator.add]
-    citation_reports: Annotated[list[CitationReport], operator.add]  # one per writer draft
+    citation_reports: Annotated[list[CitationReport], operator.add]  # per draft: draft [+ autofix] [+ repaired]
     send_backs_used: int
     writer_attempts: int
     writer_route: Route | None  # set by the supervisor for an escalated rewrite
     writer_feedback: str | None
     writer_error: str | None
     writer_budget_kind: BudgetKind | None
+    citation_repaired_attempt: int | None  # writer attempt whose draft got the citation repair (once per draft)
+    citation_repair_next: bool  # set by validate_citations: route the draft to repair_citations
     degradations: Annotated[list[Degradation], operator.add]
     failure: RunFailure | None
     outcome: RunOutcome

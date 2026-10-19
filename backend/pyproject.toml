@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "uvicorn>=0.30"]
+dev = ["pytest>=8", "uvicorn>=0.30", "matplotlib>=3.8"]  # matplotlib: the eval frontier plot
 
 # The package is imported as `backend` (e.g. `from backend.schemas import Finding`)
 # so the repo root can also import it directly (Vercel functions, evals/).

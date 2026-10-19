@@ -3,7 +3,8 @@
 One place decides which model each agent call uses:
 - Haiku for extraction and classification (intake, researcher extraction).
   Evidence grading is deterministic code (agents/grading.py) and uses no model.
-- Sonnet for planning, position mapping, debate, judging and writing.
+- Sonnet for planning, position mapping, debate, judging, writing and the
+  citation-only repair of a draft that failed the citation gate.
 - Opus only on escalation: a re-research pass or a rewrite that follows a
   failed supervisor review.
 
@@ -21,6 +22,7 @@ DEFAULT_MODELS: dict[str, str] = {
     "researcher": config.HAIKU,
     "planner": config.SONNET,
     "writer": config.SONNET,
+    "citation_repair": config.SONNET,  # citation-only fix of a draft; does not use the send-back
     "position_mapper": config.SONNET,
     "advocate": config.SONNET,
     "judge": config.SONNET,

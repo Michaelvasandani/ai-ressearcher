@@ -312,16 +312,20 @@ def test_gate_passes_a_cited_answer_with_numbers(search_tool):
 
 
 def test_gate_failure_gets_one_escalated_rewrite(search_tool):
+    # The citation repair (no fake response here, so it fails) comes first; then the Opus rewrite.
     llm = fake_llm(search_tool, writer=[writer_response(unbacked_number="17"), writer_response()])
     r = run(llm, search_tool)
     assert r.outcome.status == "answered", r.outcome
     assert [w.model for w in llm.calls_for("writer")] == [config.SONNET, config.OPUS]
     feedback = llm.calls_for("writer")[1].user
     assert "rejected by review" in feedback and "states 17" in feedback and "citation check" in feedback
-    assert [c.ok for c in r.citation_reports] == [False, True]
+    assert [(c.stage, c.ok) for c in r.citation_reports] == [("draft", False), ("repaired", False), ("draft", True)]
     assert [a.decision for a in r.answer_reviews] == ["rewrite", "accept"]
     assert "17" not in r.answer.practical_protocol
-    assert nodes(r)[-7:] == ["writer", "validate_citations", "check_answer", "writer", "validate_citations", "check_answer", "finalize"]
+    assert nodes(r)[-9:] == [
+        "writer", "validate_citations", "repair_citations", "validate_citations", "check_answer",
+        "writer", "validate_citations", "check_answer", "finalize",
+    ]
 
 
 def test_gate_failing_twice_fails_cleanly_without_an_answer(search_tool):

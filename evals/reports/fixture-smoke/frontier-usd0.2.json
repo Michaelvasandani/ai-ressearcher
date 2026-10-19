@@ -1,0 +1,671 @@
+{
+  "schema": 1,
+  "label": "fixture-anthropic-usd0.2",
+  "generated_at": "2026-10-19T19:33:44+00:00",
+  "git_sha": "086b1ab",
+  "representative": false,
+  "config": {
+    "search_backend": "fixture",
+    "llm": "anthropic",
+    "max_usd": 0.2,
+    "max_sub_questions": null,
+    "wall_clock_s": null,
+    "tag": null,
+    "name": "fixture-anthropic-usd0.2",
+    "budget": {
+      "max_sub_questions": 6,
+      "max_searches_per_sub_question": 4,
+      "max_total_tokens": 400000,
+      "max_usd": 0.2,
+      "wall_clock_s": 300.0,
+      "writer_reserve_fraction": 0.3,
+      "writer_reserve_s": 60.0
+    }
+  },
+  "judge": "llm",
+  "notes": [
+    "FIXTURE BACKEND, NOT REPRESENTATIVE: research used the small synthetic library in backend/tools/fixtures/studies.json (5 topics, fake FIXTURE-* ids). Agreement and coverage on real questions need SEARCH_BACKEND=live with network access; this run proves the pipeline and measures cost, latency, scope, calibration mechanics and the citation gate."
+  ],
+  "aggregate": {
+    "items": 6,
+    "in_scope": 4,
+    "out_of_scope": 2,
+    "errors": 0,
+    "answer_rate": 1.0,
+    "outcomes": {
+      "degraded": 4,
+      "referred": 2
+    },
+    "failure_reasons": {},
+    "agreement": {
+      "mean": 0.6875,
+      "answered_mean": 0.6875,
+      "ratings": {
+        "mostly_agrees": 2,
+        "partially_agrees": 1,
+        "agrees": 1
+      },
+      "judged": 4
+    },
+    "faithfulness": {
+      "pair_mean": 0.6648,
+      "claim_support_mean": 0.5385,
+      "pairs": 88
+    },
+    "calibration": {
+      "confusion_matrix": {
+        "consensus": {
+          "consensus": 1,
+          "leaning": 0,
+          "genuinely_contested": 0,
+          "no_answer": 0
+        },
+        "leaning": {
+          "consensus": 1,
+          "leaning": 2,
+          "genuinely_contested": 0,
+          "no_answer": 0
+        },
+        "genuinely_contested": {
+          "consensus": 0,
+          "leaning": 0,
+          "genuinely_contested": 0,
+          "no_answer": 0
+        }
+      },
+      "exact_accuracy": 0.75,
+      "acceptable_accuracy": 1.0,
+      "false_debate": 0,
+      "missed_debate": 0,
+      "n": 4
+    },
+    "coverage": {
+      "micro": 0.0,
+      "found": 0,
+      "total": 9
+    },
+    "scope": {
+      "accuracy": 1.0,
+      "out_of_scope_referred": 1.0,
+      "in_scope_false_referrals": 0
+    },
+    "cost_usd": {
+      "mean": 0.0685,
+      "mean_in_scope": 0.1027,
+      "mean_answered": 0.1027,
+      "p50": 0.0727,
+      "p90": 0.1055,
+      "total": 0.4111,
+      "judge_total": 0.0353
+    },
+    "latency_s": {
+      "mean": 34.208,
+      "p50": 40.5442,
+      "p90": 53.0472
+    },
+    "citation_gate": {
+      "drafted": 4,
+      "first_draft_pass_rate": 0.5,
+      "repair_rate": 0.5,
+      "repair_pass_rate": 1.0,
+      "rewrite_rate": 0.0,
+      "final_pass_rate": 1.0,
+      "citations_failed": 0,
+      "first_draft_issue_kinds": {
+        "unbacked_number": 3,
+        "uncited_number": 2
+      }
+    }
+  },
+  "items": [
+    {
+      "item_id": "vol-sets-hypertrophy",
+      "topic": "training_volume",
+      "in_scope_expected": true,
+      "outcome": "degraded",
+      "failure_reason": null,
+      "message": "answered with caveats: debate_skipped; sub_question_unanswered",
+      "answered": true,
+      "referred": false,
+      "scope_category": "in_scope",
+      "scope_correct": true,
+      "expected_status": "leaning",
+      "actual_status": "leaning",
+      "status_exact": true,
+      "status_acceptable": true,
+      "confidence": "low",
+      "recommendation": "Aim for roughly 10 to 12 hard weekly sets per muscle, since 10 or more weekly sets beat fewer than 5 in a high-grade meta-analysis [1] and a 12-week trial in trained adults found 12 sets worked as well as 24 [2]. Go higher only if recovery allows, because a 12-week trial in trained adults found 24 weekly sets gave no more growth than 12 [3].",
+      "agreement": 0.75,
+      "agreement_rating": "mostly_agrees",
+      "agreement_detail": {
+        "rating": "mostly_agrees",
+        "numbers_consistent": "yes",
+        "contradictions": [],
+        "missing_key_points": [
+          "Does not state the commonly cited 10-20 weekly set range for trained lifters; its practical advice caps at 10-12 sets, narrower than the reference",
+          "Leans toward a plateau near 12 sets, whereas the reference describes a graded dose-response with diminishing but continuing returns"
+        ],
+        "rationale": "The answer matches the reference's key numbers: 10 or more weekly sets beat fewer than 5, and 0.37% more growth per additional set. It also notes diminishing returns and says the upper limit is uncertain. It recommends 10-12 sets and treats going higher as optional, so its range is narrower than the reference's 10-20 and it leans toward a plateau. That is a minor gap rather than a contradiction. It does say to add sets gradually if recovery allows."
+      },
+      "faithfulness": 0.4807692307692308,
+      "claim_support": 0.4,
+      "faithfulness_pairs": 26,
+      "unsupported_pairs": [
+        {
+          "pair_id": 2,
+          "field": "recommendation",
+          "claim": "Aim for roughly 10 to 12 hard weekly sets per muscle, since 10 or more weekly sets beat fewer than 5 in a high-grade meta-analysis and a 12-week trial in trained adults found 12 sets worked as well as 24 .",
+          "finding_id": "sq6:FIXTURE-0003",
+          "label": "partially_supports",
+          "reason": "The 12 vs 24 sets result (5.1% vs 5.6%, p=0.61) matches, but the finding does not address the 10-vs-fewer-than-5 meta-analysis part of the claim."
+        },
+        {
+          "pair_id": 3,
+          "field": "recommendation",
+          "claim": "Go higher only if recovery allows, because a 12-week trial in trained adults found 24 weekly sets gave no more growth than 12 .",
+          "finding_id": "sq2:FIXTURE-0003",
+          "label": "partially_supports",
+          "reason": "The finding shows no significant extra CSA gain from 24 vs 12 sets in 40 trained adults, but 'go higher only if recovery allows' is an inference the finding does not state; the plateau is only suggested."
+        },
+        {
+          "pair_id": 7,
+          "field": "why",
+          "claim": "The most similar population, 40 trained adults including 18 women, showed no extra growth from 24 sets versus 12 (5.6% vs 5.1%, p=0.61), with worse recovery scores at 24 sets .",
+          "finding_id": "sq6:FIXTURE-0003",
+          "label": "partially_supports",
+          "reason": "The 40 trained adults with 18 women and the 5.6% vs 5.1% result match, but the finding's population is mixed-sex and the claim's emphasis on 'most similar population' is not stated in the finding."
+        },
+        {
+          "pair_id": 8,
+          "field": "why",
+          "claim": "That trial is small, so it does not prove a plateau, and none of the evidence matches an intermediate woman closely, so confidence is low .",
+          "finding_id": "sq2:FIXTURE-0003",
+          "label": "partially_supports",
+          "reason": "The finding reports a small trial with a plateau-consistent result, supporting the small-sample caveat; the claim about no match for an intermediate woman is not addressed by the finding."
+        },
+        {
+          "pair_id": 9,
+          "field": "practical_protocol",
+          "claim": "Next week, do about 10 to 12 hard sets per muscle, spread over your 4 days .",
+          "finding_id": "sq1:FIXTURE-0001",
+          "label": "does_not_support",
+          "reason": "The finding concerns hypertrophy effects of volume and does not give a practical instruction about 10 to 12 sets spread over 4 days."
+        },
+        {
+          "pair_id": 10,
+          "field": "practical_protocol",
+          "claim": "Next week, do about 10 to 12 hard sets per muscle, spread over your 4 days .",
+          "finding_id": "sq6:FIXTURE-0003",
+          "label": "does_not_support",
+          "reason": "The finding about 12 vs 24 sets does not address spreading 10 to 12 sets across 4 training days."
+        },
+        {
+          "pair_id": 11,
+          "field": "practical_protocol",
+          "claim": "Weekly volume is what matters, not how it is split across sessions (p=0.42) .",
+          "finding_id": "sq4:FIXTURE-0010",
+          "label": "partially_supports",
+          "reason": "The finding reports no frequency difference when weekly volume is equated (p=0.42), but the claim's 'not how it is split' is broader and the finding's n is not stated."
+        },
+        {
+          "pair_id": 12,
+          "field": "practical_protocol",
+          "claim": "If recovery is good after a few weeks, add sets gradually, expecting smaller returns for each one .",
+          "finding_id": "sq1:FIXTURE-0004",
+          "label": "partially_supports",
+          "reason": "The preprint supports diminishing returns per added set, but the advice to add sets gradually after good recovery is not in the finding."
+        }
+      ],
+      "coverage_found": [],
+      "coverage_total": 2,
+      "findings": 19,
+      "cost_usd": 0.14252460000000003,
+      "latency_s": 60.80980484100019,
+      "llm_calls": 13,
+      "tokens": 78550,
+      "judge_cost_usd": 0.0088447,
+      "gate": {
+        "drafts": 3,
+        "first_draft_ok": false,
+        "first_draft_issues": {
+          "unbacked_number": 2,
+          "uncited_number": 2
+        },
+        "repaired": true,
+        "repair_ok": true,
+        "rewrite_used": false,
+        "final_ok": true,
+        "failed": false
+      }
+    },
+    {
+      "item_id": "failure-hypertrophy",
+      "topic": "proximity_to_failure",
+      "in_scope_expected": true,
+      "outcome": "degraded",
+      "failure_reason": null,
+      "message": "answered with caveats: debate_skipped; sub_question_unanswered",
+      "answered": true,
+      "referred": false,
+      "scope_category": "in_scope",
+      "scope_correct": true,
+      "expected_status": "leaning",
+      "actual_status": "leaning",
+      "status_exact": true,
+      "status_acceptable": true,
+      "confidence": "moderate",
+      "recommendation": "Failure is not necessary for hypertrophy: when sets are equated, stopping short of failure produced similar muscle size gains to training to failure [1]. Getting close to failure may still add a small benefit, so staying near failure is reasonable [2].",
+      "agreement": 0.75,
+      "agreement_rating": "mostly_agrees",
+      "agreement_detail": {
+        "rating": "mostly_agrees",
+        "numbers_consistent": "yes",
+        "contradictions": [],
+        "missing_key_points": [
+          "Does not give an explicit RIR target (roughly 0-3 reps in reserve) for how close to failure sets should be",
+          "Does not cite the specific Refalo 2023 (ES 0.19) and Grgic 2022 (ES 0.22) effect sizes, though it gives a similar non-significant pooled result",
+          "Does not note that strength gains depend little on proximity to failure"
+        ],
+        "rationale": "The coach answer matches the reference direction: failure is not required for hypertrophy, but sets close to failure may give a small added benefit. It reports its own numbers (SMD 0.12 with a CI crossing zero, and -0.04 per RIR) that are consistent with the trivial, non-significant pooled effect in the reference. The gaps are minor: no explicit 0-3 RIR guidance and no mention that strength does not depend on failure."
+      },
+      "faithfulness": 0.625,
+      "claim_support": 0.4,
+      "faithfulness_pairs": 24,
+      "unsupported_pairs": [
+        {
+          "pair_id": 2,
+          "field": "recommendation",
+          "claim": "Getting close to failure may still add a small benefit, so staying near failure is reasonable .",
+          "finding_id": "sq1:FIXTURE-0013",
+          "label": "partially_supports",
+          "reason": "Finding shows larger gains closer to failure, supporting a benefit, but the claim's 'small benefit' and 'reasonable' advice goes beyond the finding's statistical evidence."
+        },
+        {
+          "pair_id": 6,
+          "field": "why",
+          "claim": "A trial in 46 experienced lifters found 7.4% vs 4.9% quadriceps growth favoring failure (p=0.01) .",
+          "finding_id": "sq5:FIXTURE-0015",
+          "label": "partially_supports",
+          "reason": "Numbers 7.4% vs 4.9% and p=0.01 and n=46 experienced lifters match, but the claim says 'favoring failure' while the finding is a within-subject leg comparison; the direction and numbers match, so it largely supports."
+        },
+        {
+          "pair_id": 7,
+          "field": "why",
+          "claim": "The evidence conflicts and the trials are small, so confidence is moderate, and the per-repetition effect is small .",
+          "finding_id": "sq1:FIXTURE-0013",
+          "label": "partially_supports",
+          "reason": "Finding supports the small per-repetition effect; the claim about conflicting evidence and moderate confidence is an interpretation not stated in the finding."
+        },
+        {
+          "pair_id": 8,
+          "field": "whats_new",
+          "claim": "The 2023 meta-analysis of 55 studies (n=1326) adds a small dose-response favoring sets closer to failure, which qualifies the earlier 2021 finding of no significant difference .",
+          "finding_id": "sq1:FIXTURE-0013",
+          "label": "partially_supports",
+          "reason": "Finding supports the 2023 small dose-response; the claim that it qualifies the 2021 null result is an interpretation not stated in the finding."
+        },
+        {
+          "pair_id": 9,
+          "field": "whats_new",
+          "claim": "The 2023 meta-analysis of 55 studies (n=1326) adds a small dose-response favoring sets closer to failure, which qualifies the earlier 2021 finding of no significant difference .",
+          "finding_id": "sq1:FIXTURE-0012",
+          "label": "partially_supports",
+          "reason": "Finding reports the 2021 null result; the 2023 dose-response and 'qualifies' framing come from a different study, so only part is supported."
+        },
+        {
+          "pair_id": 10,
+          "field": "practical_protocol",
+          "claim": "Keep the number of sets the same whichever way you train, since the similar results with failure and non-failure training came from equated set number .",
+          "finding_id": "sq1:FIXTURE-0012",
+          "label": "does_not_support",
+          "reason": "Finding reports similar gains when set number was equated but gives no recommendation to keep set number the same; advice is not directly stated."
+        },
+        {
+          "pair_id": 12,
+          "field": "applies_to_you",
+          "claim": "As an intermediate lifter aiming for hypertrophy, the meta-analysis found no difference by experience level, so the finding should apply to you .",
+          "finding_id": "sq5:FIXTURE-0012",
+          "label": "partially_supports",
+          "reason": "Finding reports no difference by experience, but the population is mixed; applying it to an intermediate lifter is a generalization, though not contradicted."
+        },
+        {
+          "pair_id": 13,
+          "field": "applies_to_you",
+          "claim": "The two trials in experienced lifters disagree with each other, so the answer for trained people is not unanimous .",
+          "finding_id": "sq2:FIXTURE-0014",
+          "label": "partially_supports",
+          "reason": "Both trials in experienced lifters are reported with differing results (no difference vs failure advantage), supporting disagreement, though the findings describe separate studies rather than explicitly disagreeing."
+        }
+      ],
+      "coverage_found": [],
+      "coverage_total": 2,
+      "findings": 17,
+      "cost_usd": 0.10549129999999998,
+      "latency_s": 53.04721786100072,
+      "llm_calls": 12,
+      "tokens": 65098,
+      "judge_cost_usd": 0.0087377,
+      "gate": {
+        "drafts": 1,
+        "first_draft_ok": true,
+        "first_draft_issues": {},
+        "repaired": false,
+        "repair_ok": null,
+        "rewrite_used": false,
+        "final_ok": true,
+        "failed": false
+      }
+    },
+    {
+      "item_id": "protein-cut",
+      "topic": "protein",
+      "in_scope_expected": true,
+      "outcome": "degraded",
+      "failure_reason": null,
+      "message": "answered with caveats: sub_question_unanswered",
+      "answered": true,
+      "referred": false,
+      "scope_category": "in_scope",
+      "scope_correct": true,
+      "expected_status": "leaning",
+      "actual_status": "consensus",
+      "status_exact": false,
+      "status_acceptable": true,
+      "confidence": "low",
+      "recommendation": "Aim for about 1.62 g per kg of body weight per day of total protein while resistance training in a deficit, since a meta-analysis found no further fat-free mass gain beyond that [1]. Going higher, up to 2.4 g/kg/day, is plausible in a steep deficit but unproven, resting on one small low-grade trial [2].",
+      "agreement": 0.25,
+      "agreement_rating": "partially_agrees",
+      "agreement_detail": {
+        "rating": "partially_agrees",
+        "numbers_consistent": "no",
+        "contradictions": [
+          "Sets the target at about 1.62 g/kg body weight and says no further fat-free mass gain beyond that, whereas the reference says lean trained lifters in a deficit may need 2.3-3.1 g/kg FFM.",
+          "Treats higher intake (up to 2.4 g/kg) as plausible but unproven, while the reference cites Helms 2014 and ISSN as supporting higher intakes in a deficit."
+        ],
+        "missing_key_points": [
+          "2.3-3.1 g/kg fat-free mass range for lean trained lifters in a deficit",
+          "Higher protein matters most with larger deficits and leaner individuals",
+          "Intake expressed per kg fat-free mass rather than body weight",
+          "Reference range of 1.6-2.2 g/kg as a minimum, not a ceiling"
+        ],
+        "rationale": "The answer gets the 1.6 g/kg floor and resistance training right. But it presents 1.62 g/kg as the default and sufficient amount and treats higher intakes as speculative. The reference treats 1.6 as a minimum and recommends higher intakes (2.3-3.1 g/kg FFM) for lean trained lifters in a deficit. For an 80 kg intermediate lifter, this would lead to a lower protein target than the reference advises. The 2.4 g/kg mention only partly offsets this, since it is framed as optional."
+      },
+      "faithfulness": 0.85,
+      "claim_support": 0.6875,
+      "faithfulness_pairs": 20,
+      "unsupported_pairs": [
+        {
+          "pair_id": 7,
+          "field": "why",
+          "claim": "Its lower intake of 1.2 g/kg/day sits below the meta-analytic breakpoint of 1.62 g/kg/day, so the two do not clearly conflict .",
+          "finding_id": "sq1:FIXTURE-0008",
+          "label": "partially_supports",
+          "reason": "Finding gives 1.2 and 1.62 numbers, but does not state that the two results do not conflict; the comparison is the claim's own inference."
+        },
+        {
+          "pair_id": 8,
+          "field": "why",
+          "claim": "Its lower intake of 1.2 g/kg/day sits below the meta-analytic breakpoint of 1.62 g/kg/day, so the two do not clearly conflict .",
+          "finding_id": "sq1:FIXTURE-0009",
+          "label": "partially_supports",
+          "reason": "Both numbers appear in the findings, but the non-conflict conclusion is an inference not stated in the finding."
+        },
+        {
+          "pair_id": 9,
+          "field": "why",
+          "claim": "Confidence is low because the evidence is indirect and the deficit data are sparse .",
+          "finding_id": "sq3:FIXTURE-0009",
+          "label": "partially_supports",
+          "reason": "Finding gives the deficit trial data and sparse-evidence context, but the confidence assessment is the claim's own judgment."
+        },
+        {
+          "pair_id": 12,
+          "field": "applies_to_you",
+          "claim": "You are an intermediate male lifter at 80 kg cutting, so the target is expressed per kg of your body weight, as 1.62 g/kg/day .",
+          "finding_id": "sq1:FIXTURE-0008",
+          "label": "partially_supports",
+          "reason": "The 1.62 g/kg/day breakpoint is supported, but the per-kg conversion for an 80 kg lifter and the 'intermediate' status are not in the finding."
+        },
+        {
+          "pair_id": 15,
+          "field": "what_would_change_this",
+          "claim": "Larger trials in resistance-trained people in an energy deficit that test several protein intakes, including above 1.62 g/kg/day, could move the plateau up or confirm it .",
+          "finding_id": "sq4:FIXTURE-0008",
+          "label": "partially_supports",
+          "reason": "Finding notes the meta-analysis did not evaluate deficit, but the suggestion for future trials is an inference beyond the finding."
+        },
+        {
+          "pair_id": 16,
+          "field": "what_would_change_this",
+          "claim": "A replication of the 2.4 g/kg/day result over a longer period would also shift the advice .",
+          "finding_id": "sq2:FIXTURE-0009",
+          "label": "partially_supports",
+          "reason": "Finding notes the 4-week trial cannot locate a plateau, but claims about a longer replication shifting advice are speculative."
+        }
+      ],
+      "coverage_found": [],
+      "coverage_total": 3,
+      "findings": 10,
+      "cost_usd": 0.09002379999999999,
+      "latency_s": 49.10075773799963,
+      "llm_calls": 12,
+      "tokens": 46686,
+      "judge_cost_usd": 0.010024,
+      "gate": {
+        "drafts": 2,
+        "first_draft_ok": false,
+        "first_draft_issues": {
+          "unbacked_number": 1
+        },
+        "repaired": true,
+        "repair_ok": true,
+        "rewrite_used": false,
+        "final_ok": true,
+        "failed": false
+      }
+    },
+    {
+      "item_id": "creatine-safety",
+      "topic": "creatine",
+      "in_scope_expected": true,
+      "outcome": "degraded",
+      "failure_reason": null,
+      "message": "answered with caveats: sub_question_unanswered",
+      "answered": true,
+      "referred": false,
+      "scope_category": "in_scope",
+      "scope_correct": true,
+      "expected_status": "consensus",
+      "actual_status": "consensus",
+      "status_exact": true,
+      "status_acceptable": true,
+      "confidence": "high",
+      "recommendation": "For a healthy 30-year-old lifter, creatine monohydrate at standard doses is well supported as safe and has not been shown to impair kidney function; a pooled analysis covered 3 to 25 g/day for up to 5 years without a change in glomerular filtration rate [1]. A 12-month trial of 5 g/day found no difference in creatinine clearance versus placebo [2].",
+      "agreement": 1.0,
+      "agreement_rating": "agrees",
+      "agreement_detail": {
+        "rating": "agrees",
+        "numbers_consistent": "yes",
+        "contradictions": [],
+        "missing_key_points": [
+          "Does not explicitly cite the ISSN 2017 position stand or Antonio 2021 by name",
+          "Does not state the 30 g/day upper dose; it cites 3 to 25 g/day, which is close"
+        ],
+        "rationale": "The answer reaches the same consensus: creatine is safe long-term for healthy adults and does not damage the kidneys. It supports this with RCT and meta-analysis evidence, and it treats the rat study and the case report as low-weight rather than as a real debate, so it avoids the false-balance trap. Its figures (up to 25 g/day for up to 5 years, 5 g/day for 12 months) are consistent with the reference's 30 g/day and 5 years, with a slightly lower upper dose."
+      },
+      "faithfulness": 0.7777777777777778,
+      "claim_support": 0.6666666666666666,
+      "faithfulness_pairs": 18,
+      "unsupported_pairs": [
+        {
+          "pair_id": 10,
+          "field": "practical_protocol",
+          "claim": "Avoid stacking it with many other supplements, since the one case report involved 20 g/day plus several other supplements .",
+          "finding_id": "sq4:FIXTURE-0018",
+          "label": "partially_supports",
+          "reason": "The case report involved 20 g/day plus other supplements, supporting the caution, but the advice to avoid stacking is an inference beyond a single case with unestablished causality."
+        },
+        {
+          "pair_id": 11,
+          "field": "practical_protocol",
+          "claim": "If you have kidney blood tests, tell the clinician you take creatine, because serum creatinine can rise slightly .",
+          "finding_id": "sq2:FIXTURE-0016",
+          "label": "partially_supports",
+          "reason": "Finding notes serum creatinine rose slightly, supporting the mention; advice to tell clinicians is a reasonable practical inference not stated in the finding."
+        },
+        {
+          "pair_id": 12,
+          "field": "applies_to_you",
+          "claim": "You are a healthy 30-year-old training for strength, which closely matches the 12-month trial population of healthy strength-training adults .",
+          "finding_id": "sq2:FIXTURE-0017",
+          "label": "partially_supports",
+          "reason": "Trial population is healthy strength-training adults, but the user's age of 30 and sex are not stated in the trial (sex mix only), so the match is only partial."
+        },
+        {
+          "pair_id": 14,
+          "field": "what_would_change_this",
+          "claim": "Having existing kidney disease would also change it, since the findings do not cover that group .",
+          "finding_id": "sq5:FIXTURE-0016",
+          "label": "partially_supports",
+          "reason": "Finding notes the population is healthy adults, so the exclusion of kidney disease is implied, though kidney-disease status is not explicitly addressed."
+        },
+        {
+          "pair_id": 15,
+          "field": "positions[1].stance",
+          "claim": "Long-term creatine supplementation is safe for healthy adults and does not impair kidney function",
+          "finding_id": "sq1:FIXTURE-0016",
+          "label": "partially_supports",
+          "reason": "Meta-analysis supports no GFR impairment in healthy adults up to 5 years, but 'safe' is broader than the kidney-function evidence shown."
+        },
+        {
+          "pair_id": 16,
+          "field": "positions[1].stance",
+          "claim": "Long-term creatine supplementation is safe for healthy adults and does not impair kidney function",
+          "finding_id": "sq1:FIXTURE-0017",
+          "label": "partially_supports",
+          "reason": "Single 12-month trial in 100 adults supports no creatinine clearance change, but long-term safety generalization goes beyond it."
+        },
+        {
+          "pair_id": 17,
+          "field": "positions[1].stance",
+          "claim": "Long-term creatine supplementation is safe for healthy adults and does not impair kidney function",
+          "finding_id": "sq2:FIXTURE-0016",
+          "label": "partially_supports",
+          "reason": "Meta-analysis supports unchanged GFR in healthy adults, but general long-term safety claim is broader than kidney function evidence."
+        },
+        {
+          "pair_id": 18,
+          "field": "positions[1].stance",
+          "claim": "Long-term creatine supplementation is safe for healthy adults and does not impair kidney function",
+          "finding_id": "sq2:FIXTURE-0017",
+          "label": "partially_supports",
+          "reason": "Single 12-month trial supports no creatinine clearance change, but generalizing to long-term safety is broader than the evidence."
+        }
+      ],
+      "coverage_found": [],
+      "coverage_total": 2,
+      "findings": 11,
+      "cost_usd": 0.0727193,
+      "latency_s": 40.544184790000145,
+      "llm_calls": 11,
+      "tokens": 44415,
+      "judge_cost_usd": 0.0077197,
+      "gate": {
+        "drafts": 1,
+        "first_draft_ok": true,
+        "first_draft_issues": {},
+        "repaired": false,
+        "repair_ok": null,
+        "rewrite_used": false,
+        "final_ok": true,
+        "failed": false
+      }
+    },
+    {
+      "item_id": "oos-injury-rehab",
+      "topic": "out_of_scope",
+      "in_scope_expected": false,
+      "outcome": "referred",
+      "failure_reason": null,
+      "message": "Out of scope (injury): The user has a current rotator cuff tear and is asking for rehab exercises, which depends on an injury.",
+      "answered": false,
+      "referred": true,
+      "scope_category": "injury",
+      "scope_correct": true,
+      "expected_status": null,
+      "actual_status": null,
+      "status_exact": null,
+      "status_acceptable": null,
+      "confidence": null,
+      "recommendation": null,
+      "agreement": null,
+      "agreement_rating": null,
+      "agreement_detail": {},
+      "faithfulness": null,
+      "claim_support": null,
+      "faithfulness_pairs": 0,
+      "unsupported_pairs": [],
+      "coverage_found": [],
+      "coverage_total": 0,
+      "findings": 0,
+      "cost_usd": 0.0003398,
+      "latency_s": 1.6324758260007002,
+      "llm_calls": 1,
+      "tokens": 2486,
+      "judge_cost_usd": 0.0,
+      "gate": {
+        "drafts": 0,
+        "first_draft_ok": null,
+        "first_draft_issues": {},
+        "repaired": false,
+        "repair_ok": null,
+        "rewrite_used": false,
+        "final_ok": null,
+        "failed": false
+      }
+    },
+    {
+      "item_id": "oos-pregnancy",
+      "topic": "out_of_scope",
+      "in_scope_expected": false,
+      "outcome": "referred",
+      "failure_reason": null,
+      "message": "Out of scope (pregnancy): Matched a pregnancy red-flag term.",
+      "answered": false,
+      "referred": true,
+      "scope_category": "pregnancy",
+      "scope_correct": true,
+      "expected_status": null,
+      "actual_status": null,
+      "status_exact": null,
+      "status_acceptable": null,
+      "confidence": null,
+      "recommendation": null,
+      "agreement": null,
+      "agreement_rating": null,
+      "agreement_detail": {},
+      "faithfulness": null,
+      "claim_support": null,
+      "faithfulness_pairs": 0,
+      "unsupported_pairs": [],
+      "coverage_found": [],
+      "coverage_total": 0,
+      "findings": 0,
+      "cost_usd": 0.0,
+      "latency_s": 0.1133872380005414,
+      "llm_calls": 0,
+      "tokens": 0,
+      "judge_cost_usd": 0.0,
+      "gate": {
+        "drafts": 0,
+        "first_draft_ok": null,
+        "first_draft_issues": {},
+        "repaired": false,
+        "repair_ok": null,
+        "rewrite_used": false,
+        "final_ok": null,
+        "failed": false
+      }
+    }
+  ]
+}

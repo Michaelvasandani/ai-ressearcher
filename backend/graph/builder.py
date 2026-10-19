@@ -13,9 +13,10 @@
                                                     +==Send x N====+  (exactly one rebuttal round)
 
             writer -> validate_citations -> check_answer --rewrite (once)--> writer
-                           |
-                           v
-                        finalize -> END
+                         |       ^             |
+                         v       |             v
+                     repair_citations       finalize -> END
+            (citation problems only, at most once per draft; does not use the send-back)
 
 Any node can set `failure`; every routing function checks it first and sends
 the run to `finalize`, which always writes a `RunOutcome`.
@@ -113,6 +114,11 @@ def after_review(state: RunState) -> list[Send] | str:
     return "finalize"
 
 
+def after_validate(state: RunState) -> str:
+    """The citation gate decided whether the draft gets its citation repair (Nodes.validate_citations)."""
+    return "repair_citations" if state.get("citation_repair_next") else "check_answer"
+
+
 def after_check(state: RunState) -> str:
     if state.get("failure") or state.get("answer") is not None:
         return "finalize"
@@ -180,6 +186,7 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
     g.add_node("review", nodes.review)
     g.add_node("writer", nodes.writer)
     g.add_node("validate_citations", nodes.validate_citations)
+    g.add_node("repair_citations", nodes.repair_citations)
     g.add_node("check_answer", nodes.check_answer)
     g.add_node("finalize", nodes.finalize)
 
@@ -193,7 +200,8 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
     g.add_conditional_edges("review", after_review, ["researcher", SYNTHESIS_ENTRY, "finalize"])
     _wire_synthesis(g, deps)
     g.add_edge("writer", "validate_citations")
-    g.add_edge("validate_citations", "check_answer")
+    g.add_conditional_edges("validate_citations", after_validate, ["repair_citations", "check_answer"])
+    g.add_edge("repair_citations", "validate_citations")
     g.add_conditional_edges("check_answer", after_check, ["writer", "finalize"])
     g.add_edge("finalize", END)
     return g.compile(checkpointer=checkpointer)
@@ -280,6 +288,7 @@ def initial_state(
         "plan_decision": None,
         "send_backs_used": 0,
         "writer_attempts": 0,
+        "citation_repaired_attempt": None,
         "downweighted": {},
         "position_map": None,
         "verdict": None,

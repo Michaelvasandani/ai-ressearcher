@@ -25,7 +25,8 @@ from backend.agents.planner import PlannerAgent
 from backend.agents.researcher import MAX_SEARCHES as RESEARCHER_MAX_SEARCHES
 from backend.agents.researcher import ResearcherAgent
 from backend.agents.writer import WriterAgent
-from backend.citations import validate_answer
+from backend.agents.citation_repair import CitationRepairAgent, can_repair, repairable_fields
+from backend.citations import autofix_citations, validate_answer
 from backend.graph.budget import (
     BudgetExceeded,
     BudgetKind,
@@ -761,9 +762,19 @@ class Nodes:
             "trace": [step],
         }
 
+    def _gate_inputs(self, state: RunState) -> tuple[str, Any]:
+        intake = state.get("intake")
+        question = " ".join(filter(None, [state.get("question"), intake.scoped_question if intake else None]))
+        profile = intake.profile if intake else state.get("profile")
+        return question, profile
+
     @guarded("validate_citations")
     def validate_citations(self, state: RunState) -> dict[str, Any]:
-        """Citation gate: every claim and number in the draft must be in a finding it cites (code, no model)."""
+        """Citation gate: every claim and number in the draft must be in a finding it cites (code, no model).
+
+        A failing draft first gets the deterministic completion (`autofix_citations`: an advice
+        sentence whose numbers all sit in one study the answer already cites gets that citation)
+        and is validated again. After a citation repair the same gate runs on the repaired draft."""
         timer = StepTimer(state["run_id"], "validate_citations")
         attempt = state.get("writer_attempts", 1)
         draft = state.get("draft_answer")
@@ -773,20 +784,82 @@ class Nodes:
                 output_summary="nothing to validate", status="skipped", decision="check_answer",
             )
             return {"trace": [step]}
-        intake = state.get("intake")
-        question = " ".join(filter(None, [state.get("question"), intake.scoped_question if intake else None]))
-        profile = intake.profile if intake else state.get("profile")
-        report = validate_answer(draft, all_findings(state), question=question, profile=profile, attempt=attempt)
+        question, profile = self._gate_inputs(state)
+        findings = all_findings(state)
+        stage = "repaired" if state.get("citation_repaired_attempt") == attempt else "draft"
+        reports = [validate_answer(draft, findings, question=question, profile=profile, attempt=attempt, stage=stage)]
+        update: dict[str, Any] = {}
+        fixes: list[str] = []
+        if not reports[0].ok:
+            fixed, fixes = autofix_citations(draft, findings, question=question, profile=profile)
+            if fixes:
+                reports.append(
+                    validate_answer(fixed, findings, question=question, profile=profile, attempt=attempt, stage="autofix")
+                )
+                update["draft_answer"] = fixed
+        report = reports[-1]
+        repair = not report.ok and self._repair_allowed(state, report)
+        update["citation_repair_next"] = repair
+        summary = report.summary()
+        if fixes:
+            summary = f"{reports[0].summary()}; autofix cited {len(fixes)} sentence(s): {summary}"
         step = timer.step(
             agent="citation_validator",
             attempt=attempt,
-            input_summary=f"draft {attempt}: {len(draft.cited_finding_ids)} cited findings",
-            output_summary=report.summary(),
+            input_summary=f"{'repaired ' if stage == 'repaired' else ''}draft {attempt}: "
+            f"{len(draft.cited_finding_ids)} cited findings",
+            output_summary=summary,
             output=report,
             status="ok" if report.ok else "failed",
-            decision="check_answer",
+            decision="repair_citations" if repair else "check_answer",
         )
-        return {"citation_reports": [report], "trace": [step]}
+        return update | {"citation_reports": reports, "trace": [step]}
+
+    def _repair_allowed(self, state: RunState, report: Any) -> bool:
+        """One citation repair per draft, only when citations are the only problem and all of them
+        are in text fields the repair can rewrite."""
+        attempt = state.get("writer_attempts", 1)
+        if state.get("citation_repaired_attempt") == attempt or state.get("draft_answer") is None:
+            return False
+        if review_answer(state.get("draft_answer"), all_findings(state), state.get("writer_error")):
+            return False  # other problems: the escalated rewrite handles them
+        return can_repair(report)
+
+    @guarded("repair_citations")
+    def repair_citations(self, state: RunState) -> dict[str, Any]:
+        """Citation-only repair of the current draft (Sonnet). Does not use the run's send-back;
+        the repaired draft goes through the citation gate again."""
+        timer = StepTimer(state["run_id"], "repair_citations")
+        attempt = state.get("writer_attempts", 1)
+        route = self.router.route("citation_repair")
+        llm = self._metered(state)
+        draft = state["draft_answer"]
+        reports = [r for r in state.get("citation_reports") or [] if r.attempt == attempt]
+        report = reports[-1]
+        repaired, error = None, None
+        try:
+            repaired = CitationRepairAgent(llm, model=route.model).run(
+                state["intake"], draft, all_findings(state), report
+            )
+        except Exception as e:  # LLMError, BudgetExceeded, CitationRepairError: keep the draft as it was
+            error = _err(e)
+        step = timer.step(
+            agent="citation_repair",
+            attempt=attempt,
+            model=route.model,
+            route_reason=route.reason,
+            input_summary=f"draft {attempt}: {report.summary()}",
+            output_summary="fields rewritten: " + ", ".join(repairable_fields(report)) if repaired else f"no repair: {error}",
+            output=repaired,
+            llm_calls=llm.records,
+            status="ok" if repaired else "failed",
+            error=error,
+            decision="validate_citations",
+        )
+        update: dict[str, Any] = {"citation_repaired_attempt": attempt, "spend": llm.spend, "trace": [step]}
+        if repaired is not None:
+            update["draft_answer"] = repaired
+        return update
 
     @guarded("check_answer")
     def check_answer(self, state: RunState) -> dict[str, Any]:

@@ -33,6 +33,7 @@ AGENT_MODELS: dict[str, AgentModel] = {
     "planner": AgentModel(SONNET, "medium", 8_000),
     "researcher": AgentModel(HAIKU, "low", 16_000),
     "writer": AgentModel(SONNET, "medium", 16_000),
+    "citation_repair": AgentModel(SONNET, "low", 8_000),
     "position_mapper": AgentModel(SONNET, "medium", 8_000),
     "advocate": AgentModel(SONNET, "low", 4_000),
     "judge": AgentModel(SONNET, "medium", 6_000),

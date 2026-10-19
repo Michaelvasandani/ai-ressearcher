@@ -23,7 +23,9 @@ from backend.llm import LLMRequest
 from backend.schemas import Record, SearchResponse, StudyRecord, utcnow
 
 # Agents whose steps can be forked, and what can be overridden for each.
-LLM_AGENTS = frozenset({"intake", "planner", "researcher", "position_mapper", "advocate", "judge", "writer"})
+LLM_AGENTS = frozenset(
+    {"intake", "planner", "researcher", "position_mapper", "advocate", "judge", "writer", "citation_repair"}
+)
 TOOL_AGENTS = frozenset({"researcher"})
 
 ADDENDUM_HEADER = "\n\nAdditional instructions for this run (time-travel override):\n"

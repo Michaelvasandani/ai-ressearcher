@@ -1,0 +1,43 @@
+{
+  "_doc": "Floors (min) and ceilings (max) on report aggregates, by profile; evals/gate.py picks the profile from the report: offline (--llm fake: FakeLLM pipeline + heuristic judges, a deterministic regression check of the harness), fixture (real models, synthetic library) or live (real models, PubMed / Europe PMC). A metric that was not measured fails. Fixture floors sit below the 2026-10-19 smoke baseline (agreement 0.69, faithfulness 0.66, answer rate 1.0 on 4 in-scope items); live floors are initial guesses until a live baseline exists (see evals/README.md).",
+  "profiles": {
+    "offline": {
+      "min": {
+        "agreement.mean": 0.05,
+        "faithfulness.pair_mean": 0.2,
+        "answer_rate": 1.0,
+        "scope.out_of_scope_referred": 1.0,
+        "calibration.acceptable_accuracy": 0.85
+      },
+      "max": {
+        "errors": 0,
+        "citation_gate.citations_failed": 0,
+        "scope.in_scope_false_referrals": 0
+      }
+    },
+    "fixture": {
+      "min": {
+        "agreement.mean": 0.5,
+        "faithfulness.pair_mean": 0.55,
+        "answer_rate": 0.75,
+        "scope.out_of_scope_referred": 1.0
+      },
+      "max": {
+        "errors": 0,
+        "scope.in_scope_false_referrals": 0
+      }
+    },
+    "live": {
+      "min": {
+        "agreement.mean": 0.5,
+        "faithfulness.pair_mean": 0.55,
+        "answer_rate": 0.66,
+        "scope.out_of_scope_referred": 1.0
+      },
+      "max": {
+        "errors": 0,
+        "scope.in_scope_false_referrals": 0
+      }
+    }
+  }
+}

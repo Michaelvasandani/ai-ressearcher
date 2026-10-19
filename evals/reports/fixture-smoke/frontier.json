@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "tags": "smoke",
+  "items": [
+    "vol-sets-hypertrophy",
+    "failure-hypertrophy",
+    "protein-cut",
+    "creatine-safety",
+    "oos-injury-rehab",
+    "oos-pregnancy"
+  ],
+  "search_backend": "fixture",
+  "llm": "anthropic",
+  "representative": false,
+  "note": "fixture search backend, NOT representative of answer quality",
+  "points": [
+    {
+      "max_usd": 0.05,
+      "cost_mean_usd": 0.0416,
+      "cost_mean_answered_usd": null,
+      "cost_p90_usd": 0.041,
+      "answer_rate": 0.0,
+      "agreement": 0.0,
+      "agreement_answered": null,
+      "faithfulness": null,
+      "calibration_acceptable": null,
+      "first_draft_pass_rate": 0.0,
+      "latency_mean_s": 19.3759,
+      "outcomes": {
+        "failed": 4,
+        "referred": 2
+      },
+      "failure_reasons": {
+        "budget_exhausted": 4
+      },
+      "items": 6
+    },
+    {
+      "max_usd": 0.2,
+      "cost_mean_usd": 0.1027,
+      "cost_mean_answered_usd": 0.1027,
+      "cost_p90_usd": 0.1055,
+      "answer_rate": 1.0,
+      "agreement": 0.6875,
+      "agreement_answered": 0.6875,
+      "faithfulness": 0.6648,
+      "calibration_acceptable": 1.0,
+      "first_draft_pass_rate": 0.5,
+      "latency_mean_s": 34.208,
+      "outcomes": {
+        "degraded": 4,
+        "referred": 2
+      },
+      "failure_reasons": {},
+      "items": 6
+    },
+    {
+      "max_usd": 1.0,
+      "cost_mean_usd": 0.1121,
+      "cost_mean_answered_usd": 0.1121,
+      "cost_p90_usd": 0.1139,
+      "answer_rate": 1.0,
+      "agreement": 0.6875,
+      "agreement_answered": 0.6875,
+      "faithfulness": 0.7407,
+      "calibration_acceptable": 1.0,
+      "first_draft_pass_rate": 0.5,
+      "latency_mean_s": 34.7104,
+      "outcomes": {
+        "answered": 1,
+        "degraded": 3,
+        "referred": 2
+      },
+      "failure_reasons": {},
+      "items": 6
+    }
+  ],
+  "reports": {
+    "0.05": "frontier-usd0.05.json",
+    "0.2": "frontier-usd0.2.json",
+    "1": "frontier-usd1.json"
+  }
+}

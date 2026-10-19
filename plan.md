@@ -154,15 +154,15 @@ class CoachAnswer(BaseModel):
 - [x] **Time-travel debugging:** `POST /research/{id}/fork?from_step=N` with an override (prompt, model or tool result) replays from that checkpoint and returns a diff against the original answer.
 
 ### Phase 7: Evaluation (week 5)
-- [ ] **Golden set:** 30–50 questions with reference answers from ISSN / ACSM position stands and well-known meta-analyses.
-- [ ] **Metrics:**
+- [x] **Golden set:** 30–50 questions with reference answers from ISSN / ACSM position stands and well-known meta-analyses.
+- [x] **Metrics:**
   - *Agreement:* does the coach's recommendation match the reference?
   - *Debate calibration:* does it flag a debate where the literature truly disagrees, and report consensus where it doesn't?
   - *Faithfulness:* does each cited snippet actually support its claim (LLM judge or NLI)?
   - *Coverage:* how many of the reference's key studies did it find?
   - *Cost and latency* per answer.
-- [ ] **CI gate:** fail the build if faithfulness or agreement drops.
-- [ ] **Cost–quality frontier:** run the eval at several budget caps ($0.05 / $0.20 / $1.00) and plot quality against cost.
+- [x] **CI gate:** fail the build if faithfulness or agreement drops.
+- [x] **Cost–quality frontier:** run the eval at several budget caps ($0.05 / $0.20 / $1.00) and plot quality against cost.
 
 ### Phase 8: Chat UI (weeks 5–6, can start in parallel from week 4)
 See the [UI](#ui) section below.

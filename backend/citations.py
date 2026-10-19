@@ -256,10 +256,18 @@ class CitationIssue(Record):
     detail: str
 
 
+ReportStage = Literal[
+    "draft",  # the writer's draft as written
+    "autofix",  # after the deterministic citation completion (autofix_citations)
+    "repaired",  # after the citation-only repair pass (agents/citation_repair.py)
+]
+
+
 class CitationReport(Record):
     """Result of validating one answer draft. `ok` only with no issues."""
 
-    attempt: int = 1
+    attempt: int = 1  # writer attempt (draft number)
+    stage: ReportStage = "draft"
     ok: bool
     claims_checked: int = 0
     numbers_checked: int = 0
@@ -381,12 +389,14 @@ def validate_answer(
     question: str | None = None,
     profile: UserProfile | None = None,
     attempt: int = 1,
+    stage: ReportStage = "draft",
 ) -> CitationReport:
     """Check every claim and number in `answer` against the finding records. Deterministic."""
     checker = _Checker(answer, findings, context_values(question, profile))
     checker.run()
     return CitationReport(
         attempt=attempt,
+        stage=stage,
         ok=not checker.issues,
         claims_checked=checker.claims,
         numbers_checked=checker.numbers,
@@ -443,3 +453,104 @@ def number_citations(
         if fid in known and fid not in refs:
             refs.append(fid)
     return out, refs, list(dict.fromkeys(invented))
+
+
+# --- Repairs: [n] -> [finding id], deterministic completion, re-numbering -----------------
+
+TEXT_FIELDS = (*EVIDENCE_FIELDS, *ADVICE_FIELDS)
+
+
+def unnumber_citations(text: str | None, refs: list[str]) -> str | None:
+    """The inverse of `number_citations`: `[1, 2]` -> `[id1; id2]` (markers that point nowhere stay)."""
+    if text is None:
+        return None
+
+    def replace(m: re.Match[str]) -> str:
+        nums = marker_numbers(m.group(1))
+        if not nums or not all(1 <= n <= len(refs) for n in nums):
+            return m.group(0)
+        return "[" + "; ".join(dict.fromkeys(refs[n - 1] for n in nums)) + "]"
+
+    return MARKER.sub(replace, text)
+
+
+def answer_id_texts(answer: CoachAnswer) -> dict[str, str | None]:
+    """The answer's text fields with inline finding-id citations, as the writer wrote them."""
+    return {name: unnumber_citations(getattr(answer, name), answer.cited_finding_ids) for name in TEXT_FIELDS}
+
+
+def with_id_texts(answer: CoachAnswer, texts: Mapping[str, str | None], known_ids: Iterable[str]) -> tuple[CoachAnswer, list[str]]:
+    """Replace the answer's text fields with id-cited `texts`, renumbering every marker.
+
+    Returns the new answer and the invented ids that were dropped."""
+    merged = {**answer_id_texts(answer), **texts}
+    extra = [*answer.cited_finding_ids, *(i for p in answer.positions for i in p.supporting_findings)]
+    out, refs, invented = number_citations(merged, known_ids, extra_ids=extra)
+    update = {name: out[name] if out[name] is not None else getattr(answer, name) for name in TEXT_FIELDS}
+    update["whats_new"] = out["whats_new"] or None
+    update["cited_finding_ids"] = refs
+    return answer.model_copy(update=update), invented
+
+
+def _cite_at_end(sentence: str, fid: str) -> str:
+    m = re.search(r"([.!?][\"')\]]*)$", sentence)
+    if m:
+        return f"{sentence[: m.start()]} [{fid}]{m.group(1)}"
+    return f"{sentence} [{fid}]"
+
+
+def autofix_citations(
+    answer: CoachAnswer,
+    findings: list[Finding],
+    *,
+    question: str | None = None,
+    profile: UserProfile | None = None,
+) -> tuple[CoachAnswer, list[str]]:
+    """Deterministic completion of a trivially missing citation, before the gate's verdict.
+
+    Only one case is repaired: a sentence in an advice field (`practical_protocol`,
+    `applies_to_you`, `what_would_change_this`) that cites nothing, states numbers, and every
+    one of those numbers appears in a single study the answer already cites elsewhere. That
+    study is cited at the end of the sentence. Evidence fields, wrong citations and numbers
+    no cited study contains are left for the repair pass or the rewrite: nothing here invents
+    support, and the result is validated again like any draft.
+
+    Returns the (possibly) updated answer and one note per completed sentence.
+    """
+    by_id = {f.id: f for f in findings}
+    cited = [i for i in dict.fromkeys([*answer.cited_finding_ids, *answer.all_cited_ids()]) if i in by_id]
+    if not cited:
+        return answer, []
+    values = {fid: finding_values(by_id[fid]) for fid in cited}
+    context = context_values(question, profile)
+    texts = answer_id_texts(answer)
+    notes: list[str] = []
+    for name in ADVICE_FIELDS:
+        text = texts.get(name)
+        if not text:
+            continue
+        changed = False
+        rebuilt: list[str] = []
+        for s in sentences(text):
+            if _BRACKET.search(s):
+                rebuilt.append(s)
+                continue
+            numbers = [n for n in extract_numbers(s) if not matches(n, context)]
+            if not numbers:
+                rebuilt.append(s)
+                continue
+            holders = [fid for fid in cited if all(matches(n, values[fid]) for n in numbers)]
+            sources = {by_id[fid].source_id for fid in holders}
+            if len(sources) != 1:
+                rebuilt.append(s)
+                continue
+            fid = holders[0]
+            rebuilt.append(_cite_at_end(s, fid))
+            notes.append(f"{name}: cited {fid} for {', '.join(n.text for n in numbers)}")
+            changed = True
+        if changed:
+            texts[name] = " ".join(rebuilt)
+    if not notes:
+        return answer, []
+    fixed, _ = with_id_texts(answer, texts, by_id)
+    return fixed, notes

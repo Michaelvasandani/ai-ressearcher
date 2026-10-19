@@ -36,7 +36,7 @@ def describe_step(step: TraceStep) -> str:
     """One human line for a trace step."""
     out = _out(step)
     node = step.node
-    if step.status == "failed" and node not in ("validate_citations", "check_answer", "review", "researcher"):
+    if step.status == "failed" and node not in ("validate_citations", "check_answer", "review", "researcher", "repair_citations"):
         return f"{node.replace('_', ' ').capitalize()} failed: {step.error or step.output_summary}"[:200]
     if node == "intake":
         if out.get("in_scope") is False:
@@ -100,7 +100,12 @@ def describe_step(step: TraceStep) -> str:
             return "Citations: nothing to check"
         issues = len(out.get("issues") or [])
         checked = f"{out.get('claims_checked', 0)} claims and {out.get('numbers_checked', 0)} numbers"
-        return f"Citations: {checked} backed" if issues == 0 else f"Citations: {_plural(issues, 'problem')} in {checked}"
+        after = {"autofix": " after autofix", "repaired": " after repair"}.get(out.get("stage") or "draft", "")
+        if issues == 0:
+            return f"Citations: {checked} backed{after}"
+        return f"Citations: {_plural(issues, 'problem')} in {checked}{after}"
+    if node == "repair_citations":
+        return "Citations repaired" if step.status == "ok" else f"Citation repair failed: {step.error or step.output_summary}"[:200]
     if node == "check_answer":
         decision = out.get("decision")
         return {"accept": "Answer accepted", "rewrite": "Answer sent back for one rewrite"}.get(

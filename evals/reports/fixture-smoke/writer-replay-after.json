@@ -1,0 +1,103 @@
+{
+  "prompt": "working tree",
+  "drafts": 8,
+  "first_draft_pass_rate": 0.75,
+  "after_autofix_pass_rate": 0.75,
+  "issue_kinds": {
+    "unbacked_number": 2,
+    "uncited_claim": 1,
+    "uncited_number": 3
+  },
+  "issue_kinds_after_autofix": {
+    "unbacked_number": 2,
+    "uncited_claim": 1,
+    "uncited_number": 3
+  },
+  "cost_usd": 0.2315,
+  "rows": [
+    {
+      "item_id": "creatine-safety",
+      "ok": true,
+      "autofix_ok": true,
+      "autofixed": 0,
+      "issues": {},
+      "issues_after_autofix": {},
+      "cost_usd": 0.026818
+    },
+    {
+      "item_id": "creatine-safety",
+      "ok": true,
+      "autofix_ok": true,
+      "autofixed": 0,
+      "issues": {},
+      "issues_after_autofix": {},
+      "cost_usd": 0.027198
+    },
+    {
+      "item_id": "failure-hypertrophy",
+      "ok": true,
+      "autofix_ok": true,
+      "autofixed": 0,
+      "issues": {},
+      "issues_after_autofix": {},
+      "cost_usd": 0.026592
+    },
+    {
+      "item_id": "failure-hypertrophy",
+      "ok": true,
+      "autofix_ok": true,
+      "autofixed": 0,
+      "issues": {},
+      "issues_after_autofix": {},
+      "cost_usd": 0.025872
+    },
+    {
+      "item_id": "protein-cut",
+      "ok": true,
+      "autofix_ok": true,
+      "autofixed": 0,
+      "issues": {},
+      "issues_after_autofix": {},
+      "cost_usd": 0.02559
+    },
+    {
+      "item_id": "protein-cut",
+      "ok": true,
+      "autofix_ok": true,
+      "autofixed": 0,
+      "issues": {},
+      "issues_after_autofix": {},
+      "cost_usd": 0.02474
+    },
+    {
+      "item_id": "vol-sets-hypertrophy",
+      "ok": false,
+      "autofix_ok": false,
+      "autofixed": 0,
+      "issues": {
+        "unbacked_number": 1
+      },
+      "issues_after_autofix": {
+        "unbacked_number": 1
+      },
+      "cost_usd": 0.036816
+    },
+    {
+      "item_id": "vol-sets-hypertrophy",
+      "ok": false,
+      "autofix_ok": false,
+      "autofixed": 0,
+      "issues": {
+        "uncited_claim": 1,
+        "uncited_number": 3,
+        "unbacked_number": 1
+      },
+      "issues_after_autofix": {
+        "uncited_claim": 1,
+        "uncited_number": 3,
+        "unbacked_number": 1
+      },
+      "cost_usd": 0.037916
+    }
+  ]
+}

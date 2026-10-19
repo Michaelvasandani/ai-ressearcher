@@ -1,0 +1,70 @@
+{
+  "prompt": "HEAD",
+  "drafts": 4,
+  "first_draft_pass_rate": 0.0,
+  "after_autofix_pass_rate": 0.25,
+  "issue_kinds": {
+    "uncited_number": 12,
+    "uncited_claim": 6
+  },
+  "issue_kinds_after_autofix": {
+    "uncited_claim": 6,
+    "uncited_number": 7
+  },
+  "cost_usd": 0.1131,
+  "rows": [
+    {
+      "item_id": "creatine-safety",
+      "ok": false,
+      "autofix_ok": true,
+      "autofixed": 2,
+      "issues": {
+        "uncited_number": 3
+      },
+      "issues_after_autofix": {},
+      "cost_usd": 0.025358
+    },
+    {
+      "item_id": "failure-hypertrophy",
+      "ok": false,
+      "autofix_ok": false,
+      "autofixed": 0,
+      "issues": {
+        "uncited_claim": 2
+      },
+      "issues_after_autofix": {
+        "uncited_claim": 2
+      },
+      "cost_usd": 0.025842
+    },
+    {
+      "item_id": "protein-cut",
+      "ok": false,
+      "autofix_ok": false,
+      "autofixed": 1,
+      "issues": {
+        "uncited_claim": 3,
+        "uncited_number": 8
+      },
+      "issues_after_autofix": {
+        "uncited_claim": 3,
+        "uncited_number": 7
+      },
+      "cost_usd": 0.02429
+    },
+    {
+      "item_id": "vol-sets-hypertrophy",
+      "ok": false,
+      "autofix_ok": false,
+      "autofixed": 1,
+      "issues": {
+        "uncited_claim": 1,
+        "uncited_number": 1
+      },
+      "issues_after_autofix": {
+        "uncited_claim": 1
+      },
+      "cost_usd": 0.037636
+    }
+  ]
+}
