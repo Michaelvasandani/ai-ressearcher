@@ -25,6 +25,7 @@ from backend.agents.planner import PlannerAgent
 from backend.agents.researcher import MAX_SEARCHES as RESEARCHER_MAX_SEARCHES
 from backend.agents.researcher import ResearcherAgent
 from backend.agents.writer import WriterAgent
+from backend.citations import validate_answer
 from backend.graph.budget import (
     BudgetExceeded,
     BudgetKind,
@@ -35,6 +36,7 @@ from backend.graph.budget import (
     remaining,
     research_pool,
 )
+from backend.graph.overrides import ScopedOverride
 from backend.graph.plan_review import PlanApprovalRequest, PlanDecision
 from backend.graph.routing import ModelRouter
 from backend.graph.state import (
@@ -95,10 +97,33 @@ class GraphDeps:
     findings_store: FindingsStore | None = None  # topic findings, reused across runs while fresh
     findings_ttl_s: float = DEFAULT_TTL_DAYS * 86_400
     findings_min_similarity: float = DEFAULT_MIN_SIMILARITY
+    # Phase 6 time-travel: run id -> the fork's scoped override (None for ordinary runs).
+    overrides: Callable[[str], ScopedOverride | None] | None = None
 
-    def metered(self, allowance: Any, run_id: str) -> MeteredLLM:
-        """A MeteredLLM for one node, recording calls in the run's ledger when there is one."""
-        return MeteredLLM(self.llm, allowance, self.clock, ledger=self.ledger, run_id=run_id)
+    def override_for(self, run_id: str) -> ScopedOverride | None:
+        if self.overrides is None:
+            return None
+        try:
+            return self.overrides(run_id)
+        except Exception:  # a lookup failure must not kill the run; the fork then runs without it
+            log.warning("override lookup failed for run %s", run_id, exc_info=True)
+            return None
+
+    def metered(
+        self, allowance: Any, run_id: str, *, sub_question_id: str | None = None, position_no: int | None = None
+    ) -> MeteredLLM:
+        """A MeteredLLM for one node, recording calls in the run's ledger when there is one.
+        In a fork, requests in the override's scope get its prompt addendum / model."""
+        transform = None
+        scoped = self.override_for(run_id)
+        if scoped is not None:
+
+            def transform(request: Any) -> Any:
+                if scoped.applies(request.agent, sub_question_id=sub_question_id, position_no=position_no):
+                    return scoped.transform(request)
+                return request
+
+        return MeteredLLM(self.llm, allowance, self.clock, ledger=self.ledger, run_id=run_id, transform=transform)
 
 
 def _err(e: BaseException) -> str:
@@ -365,14 +390,17 @@ class Nodes:
         """One researcher pass on one sub-question. Runs in parallel with its siblings, so it
         only writes reducer channels and never sets `failure`."""
         task = task if isinstance(task, ResearchTask) else ResearchTask.model_validate(task)
-        if task.pass_no == 1 and self.deps.findings_store is not None:
+        sq = task.sub_question
+        scoped = self.deps.override_for(task.run_id)
+        overridden = scoped is not None and scoped.applies("researcher", sub_question_id=sq.id)
+        if task.pass_no == 1 and self.deps.findings_store is not None and not overridden:
             reused = self._reuse_topic_findings(task)
             if reused is not None:
                 return reused
-        sq = task.sub_question
         timer = StepTimer(task.run_id, "researcher")
-        llm = self.deps.metered(task.allowance, task.run_id)
-        search = MeteredSearch(self.deps.search_tool, task.max_searches, task.allowance.deadline, self.deps.clock)
+        llm = self.deps.metered(task.allowance, task.run_id, sub_question_id=sq.id)
+        tool = (scoped.search_tool() if overridden and scoped is not None else None) or self.deps.search_tool
+        search = MeteredSearch(tool, task.max_searches, task.allowance.deadline, self.deps.clock)
         error: str | None = None
         try:
             agent = ResearcherAgent(llm, search, model=task.route.model, max_searches=task.max_searches)
@@ -537,8 +565,11 @@ class Nodes:
         return {"research": {sq.id: record}, "spend": Spend(), "trace": [step]}
 
     def _save_topic_findings(self, task: ResearchTask, result: ResearchResult) -> list[ToolCall]:
-        """Keep a searched pass's findings by topic for later runs. Never fails the pass."""
+        """Keep a searched pass's findings by topic for later runs. Never fails the pass.
+        Forks never write: their findings are counterfactual (overridden prompts / tool results)."""
         store = self.deps.findings_store
+        if self.deps.override_for(task.run_id) is not None:
+            return []
         findings = [f for f in result.findings if not f.retracted and f.provenance_problem() is None]
         if store is None or not any(f.study_type not in NON_HUMAN for f in findings):
             return []
@@ -730,13 +761,48 @@ class Nodes:
             "trace": [step],
         }
 
+    @guarded("validate_citations")
+    def validate_citations(self, state: RunState) -> dict[str, Any]:
+        """Citation gate: every claim and number in the draft must be in a finding it cites (code, no model)."""
+        timer = StepTimer(state["run_id"], "validate_citations")
+        attempt = state.get("writer_attempts", 1)
+        draft = state.get("draft_answer")
+        if draft is None:
+            step = timer.step(
+                agent="citation_validator", attempt=attempt, input_summary="no draft answer",
+                output_summary="nothing to validate", status="skipped", decision="check_answer",
+            )
+            return {"trace": [step]}
+        intake = state.get("intake")
+        question = " ".join(filter(None, [state.get("question"), intake.scoped_question if intake else None]))
+        profile = intake.profile if intake else state.get("profile")
+        report = validate_answer(draft, all_findings(state), question=question, profile=profile, attempt=attempt)
+        step = timer.step(
+            agent="citation_validator",
+            attempt=attempt,
+            input_summary=f"draft {attempt}: {len(draft.cited_finding_ids)} cited findings",
+            output_summary=report.summary(),
+            output=report,
+            status="ok" if report.ok else "failed",
+            decision="check_answer",
+        )
+        return {"citation_reports": [report], "trace": [step]}
+
     @guarded("check_answer")
     def check_answer(self, state: RunState) -> dict[str, Any]:
-        """Supervisor: accept the draft, send it back once for an escalated rewrite, or fail cleanly."""
+        """Supervisor: accept the draft, send it back once for an escalated rewrite, or fail cleanly.
+
+        The draft must pass both the answer review and the citation gate; a rewrite gets every
+        problem as feedback. Without a send-back left the run fails cleanly (no answer is returned)."""
         timer = StepTimer(state["run_id"], "check_answer")
         attempt = state.get("writer_attempts", 1)
         draft = state.get("draft_answer")
         problems = review_answer(draft, all_findings(state), state.get("writer_error"))
+        citation_problems: list[str] = []
+        reports = [r for r in state.get("citation_reports") or [] if r.attempt == attempt]
+        if draft is not None and reports and not reports[-1].ok:
+            citation_problems = reports[-1].problems()
+        problems = problems + citation_problems
         send_backs_used = state.get("send_backs_used", 0)
         update: dict[str, Any] = {}
 
@@ -757,7 +823,12 @@ class Nodes:
                 review = AnswerReview(
                     attempt=attempt, decision="fail", problems=problems, reason="send-back already used"
                 )
-                update["failure"] = RunFailure(reason="writer_failed", node="writer", message="; ".join(problems))
+                only_citations = len(problems) == len(citation_problems)
+                update["failure"] = RunFailure(
+                    reason="citations_failed" if only_citations else "writer_failed",
+                    node="validate_citations" if only_citations else "writer",
+                    message="; ".join(problems)[:2000],
+                )
             else:
                 review = AnswerReview(
                     attempt=attempt, decision="rewrite", problems=problems, reason="rewrite with the escalation model"

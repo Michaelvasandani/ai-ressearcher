@@ -98,11 +98,16 @@ class _PG:
 
 _RUN_COLUMNS = (
     "run_id, user_id, conversation_id, question, profile, require_plan_approval, status, "
-    "outcome_status, outcome, cost_usd, error, created_at, updated_at"
+    "outcome_status, outcome, cost_usd, error, budget, lease_owner, lease_expires_at, attempts, "
+    "pending_decision, parent_run_id, fork, created_at, updated_at"
 )
 _RUN_UPDATABLE = frozenset(
-    {"status", "outcome_status", "outcome", "cost_usd", "error", "conversation_id", "profile", "user_id"}
+    {
+        "status", "outcome_status", "outcome", "cost_usd", "error", "conversation_id", "profile", "user_id",
+        "budget", "lease_owner", "lease_expires_at", "attempts", "pending_decision", "fork",
+    }
 )
+_RUN_JSON = frozenset({"profile", "outcome", "budget", "pending_decision", "fork"})
 
 
 def _run(row: dict[str, Any]) -> RunRecord:
@@ -111,25 +116,25 @@ def _run(row: dict[str, Any]) -> RunRecord:
 
 class PostgresRunStore(_PG):
     def create(self, run: RunRecord) -> RunRecord:
+        def js(v: Any) -> Any:
+            return Jsonb(v) if v is not None else None
+
         row = self._one(
-            f"""insert into runs ({_RUN_COLUMNS}) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            returning {_RUN_COLUMNS}""",
+            f"""insert into runs ({_RUN_COLUMNS})
+            values ({", ".join(["%s"] * 20)}) returning {_RUN_COLUMNS}""",
             (
                 run.run_id, run.user_id, run.conversation_id, run.question,
-                Jsonb(run.profile.model_dump(mode="json")) if run.profile else None,
-                run.require_plan_approval, run.status, run.outcome_status,
-                Jsonb(run.outcome) if run.outcome is not None else None,
-                run.cost_usd, run.error, run.created_at, run.updated_at,
+                js(run.profile.model_dump(mode="json") if run.profile else None),
+                run.require_plan_approval, run.status, run.outcome_status, js(run.outcome),
+                run.cost_usd, run.error, js(run.budget), run.lease_owner, run.lease_expires_at, run.attempts,
+                js(run.pending_decision), run.parent_run_id, js(run.fork), run.created_at, run.updated_at,
             ),
         )
         assert row is not None
         return _run(row)
 
-    def get(self, run_id: str) -> RunRecord | None:
-        row = self._one(f"select {_RUN_COLUMNS} from runs where run_id = %s", (run_id,))
-        return _run(row) if row else None
-
-    def update(self, run_id: str, **fields: Any) -> RunRecord | None:
+    @staticmethod
+    def _sets(fields: dict[str, Any]) -> tuple[list[str], list[Any]]:
         unknown = set(fields) - _RUN_UPDATABLE
         if unknown:
             raise ValueError(f"cannot update run columns: {sorted(unknown)}")
@@ -137,15 +142,73 @@ class PostgresRunStore(_PG):
         for name, value in fields.items():
             if name == "profile" and isinstance(value, UserProfile):
                 value = value.model_dump(mode="json")
-            if name in ("profile", "outcome") and value is not None:
+            if name in _RUN_JSON and value is not None:
                 value = Jsonb(value)
             sets.append(f"{name} = %s")
             params.append(value)
         sets.append("updated_at = now()")
+        return sets, params
+
+    def get(self, run_id: str) -> RunRecord | None:
+        row = self._one(f"select {_RUN_COLUMNS} from runs where run_id = %s", (run_id,))
+        return _run(row) if row else None
+
+    def update(self, run_id: str, **fields: Any) -> RunRecord | None:
+        sets, params = self._sets(fields)
         row = self._one(
             f"update runs set {', '.join(sets)} where run_id = %s returning {_RUN_COLUMNS}", (*params, run_id)
         )
         return _run(row) if row else None
+
+    def transition(self, run_id: str, from_status: tuple[str, ...], **fields: Any) -> RunRecord | None:
+        sets, params = self._sets(fields)
+        row = self._one(
+            f"update runs set {', '.join(sets)} where run_id = %s and status = any(%s) returning {_RUN_COLUMNS}",
+            (*params, run_id, list(from_status)),
+        )
+        return _run(row) if row else None
+
+    # Leases: one conditional UPDATE each. Under READ COMMITTED a concurrent UPDATE of the same
+    # row waits for the first to commit and then re-checks the WHERE clause, so two workers
+    # racing for a free lease cannot both win. Expiry uses the database clock.
+
+    def acquire_lease(self, run_id: str, owner: str, ttl_s: float) -> RunRecord | None:
+        row = self._one(
+            f"""update runs set lease_owner = %s, lease_expires_at = now() + make_interval(secs => %s)
+            where run_id = %s and status = 'running'
+              and (lease_expires_at is null or lease_expires_at < now() or lease_owner = %s)
+            returning {_RUN_COLUMNS}""",
+            (owner, ttl_s, run_id, owner),
+        )
+        return _run(row) if row else None
+
+    def renew_lease(self, run_id: str, owner: str, ttl_s: float) -> bool:
+        row = self._one(
+            """update runs set lease_expires_at = now() + make_interval(secs => %s)
+            where run_id = %s and lease_owner = %s returning run_id""",
+            (ttl_s, run_id, owner),
+        )
+        return row is not None
+
+    def release_lease(self, run_id: str, owner: str) -> bool:
+        row = self._one(
+            """update runs set lease_owner = null, lease_expires_at = null, updated_at = now()
+            where run_id = %s and lease_owner = %s returning run_id""",
+            (run_id, owner),
+        )
+        return row is not None
+
+    def reapable(self, *, stale_after_s: float, max_attempts: int, limit: int = 20) -> list[RunRecord]:
+        rows = self._all(
+            f"""select {_RUN_COLUMNS} from runs
+            where (status = 'running' and (
+                    lease_expires_at < now()
+                    or (lease_expires_at is null and updated_at < now() - make_interval(secs => %s))))
+               or (status = 'error' and attempts < %s and updated_at < now() - make_interval(secs => %s))
+            order by updated_at limit %s""",
+            (stale_after_s, max_attempts, stale_after_s, limit),
+        )
+        return [_run(r) for r in rows]
 
     def list(
         self, *, user_id: str | None = None, conversation_id: str | None = None, limit: int = 50

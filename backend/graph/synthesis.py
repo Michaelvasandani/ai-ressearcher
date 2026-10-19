@@ -260,7 +260,7 @@ class SynthesisNodes:
         reducer channels and never sets `failure`."""
         task = task if isinstance(task, AdvocateTask) else AdvocateTask.model_validate(task)
         timer = StepTimer(task.run_id, "advocate")
-        llm = self.deps.metered(task.allowance, task.run_id)
+        llm = self.deps.metered(task.allowance, task.run_id, position_no=task.position_no)
         kind = "opening" if task.round == 1 else "rebuttal"
         try:
             turn = AdvocateAgent(llm, model=task.route.model).run(
@@ -279,6 +279,7 @@ class SynthesisNodes:
         rejected = len(turn.rejected_claims)
         step = timer.step(
             agent="advocate",
+            position_id=f"P{task.position_no}",
             attempt=task.round,
             model=task.route.model,
             route_reason=task.route.reason,

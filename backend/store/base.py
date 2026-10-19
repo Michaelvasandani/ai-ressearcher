@@ -22,6 +22,7 @@ from backend.store.models import (
     LedgerEntry,
     RunEvent,
     RunRecord,
+    RunStatus,
     TopicFindings,
     TopicHit,
 )
@@ -37,6 +38,29 @@ class RunStore(Protocol):
     def list(
         self, *, user_id: str | None = None, conversation_id: str | None = None, limit: int = 50
     ) -> list[RunRecord]: ...
+
+    # --- execution (Phase 6) ---
+
+    def transition(self, run_id: str, from_status: tuple[RunStatus, ...], **fields: Any) -> RunRecord | None:
+        """Update only if the run's status is one of `from_status` (atomic); None otherwise."""
+        ...
+
+    def acquire_lease(self, run_id: str, owner: str, ttl_s: float) -> RunRecord | None:
+        """Take the run's lease if it is `running` and its lease is free, expired or already ours.
+        Atomic: of two concurrent callers at most one gets the record back."""
+        ...
+
+    def renew_lease(self, run_id: str, owner: str, ttl_s: float) -> bool:
+        """Extend our lease; False if it is no longer ours."""
+        ...
+
+    def release_lease(self, run_id: str, owner: str) -> bool: ...
+
+    def reapable(self, *, stale_after_s: float, max_attempts: int, limit: int = 20) -> list[RunRecord]:
+        """Runs a worker should pick up: `running` with an expired lease, or with no lease and no
+        progress for `stale_after_s` (the first advance never arrived); `error` runs with fewer than
+        `max_attempts` failed advances and no progress for `stale_after_s`."""
+        ...
 
 
 class EventStore(Protocol):

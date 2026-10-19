@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{frontend/**,evals/**,supabase/**,backend/tests/**,backend/.venv/**,**/__pycache__/**,**/*.egg-info/**,plan.md}"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/internal/cron/reap", "schedule": "* * * * *" }
+  ]
+}

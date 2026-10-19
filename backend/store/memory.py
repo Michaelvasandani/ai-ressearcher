@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from backend.schemas import UserProfile, utcnow
@@ -54,6 +54,60 @@ class MemoryRunStore:
             and (conversation_id is None or r.conversation_id == conversation_id)
         ]
         return sorted(runs, key=lambda r: r.created_at, reverse=True)[:limit]
+
+    def transition(self, run_id: str, from_status: tuple[str, ...], **fields: Any) -> RunRecord | None:
+        with self._lock:
+            run = self._runs.get(run_id)
+            if run is None or run.status not in from_status:
+                return None
+            run = run.model_copy(update={**fields, "updated_at": utcnow()})
+            self._runs[run_id] = run
+            return run
+
+    def acquire_lease(self, run_id: str, owner: str, ttl_s: float) -> RunRecord | None:
+        with self._lock:
+            run = self._runs.get(run_id)
+            now = utcnow()
+            if run is None or run.status != "running":
+                return None
+            free = run.lease_expires_at is None or run.lease_expires_at < now or run.lease_owner == owner
+            if not free:
+                return None
+            run = run.model_copy(update={"lease_owner": owner, "lease_expires_at": now + timedelta(seconds=ttl_s)})
+            self._runs[run_id] = run
+            return run
+
+    def renew_lease(self, run_id: str, owner: str, ttl_s: float) -> bool:
+        with self._lock:
+            run = self._runs.get(run_id)
+            if run is None or run.lease_owner != owner:
+                return False
+            self._runs[run_id] = run.model_copy(update={"lease_expires_at": utcnow() + timedelta(seconds=ttl_s)})
+            return True
+
+    def release_lease(self, run_id: str, owner: str) -> bool:
+        with self._lock:
+            run = self._runs.get(run_id)
+            if run is None or run.lease_owner != owner:
+                return False
+            self._runs[run_id] = run.model_copy(
+                update={"lease_owner": None, "lease_expires_at": None, "updated_at": utcnow()}
+            )
+            return True
+
+    def reapable(self, *, stale_after_s: float, max_attempts: int, limit: int = 20) -> list[RunRecord]:
+        now = utcnow()
+        stale = now - timedelta(seconds=stale_after_s)
+        out = []
+        for r in list(self._runs.values()):
+            if r.status == "running" and (
+                (r.lease_expires_at is not None and r.lease_expires_at < now)
+                or (r.lease_expires_at is None and r.updated_at < stale)
+            ):
+                out.append(r)
+            elif r.status == "error" and r.attempts < max_attempts and r.updated_at < stale:
+                out.append(r)
+        return sorted(out, key=lambda r: r.updated_at)[:limit]
 
 
 class MemoryEventStore:

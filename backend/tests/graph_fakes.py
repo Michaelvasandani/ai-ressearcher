@@ -175,10 +175,29 @@ def extractor(
     return respond
 
 
+_SNIPPET = re.compile(r'^\[([^\]]+)\] \(.*?\n(?:  .*\n)*?  snippet: "(.*)"$', re.M)
+
+
+def snippet_number(request: LLMRequest[Any], fid: str) -> str | None:
+    """The first digit-number in finding `fid`'s snippet as rendered in a writer prompt."""
+    for found_id, snippet in _SNIPPET.findall(request.user):
+        if found_id == fid:
+            m = re.search(r"(?<![\w.])\d+(?:\.\d+)?", snippet)
+            return m.group(0) if m else None
+    return None
+
+
 def writer_response(
-    status: str = "consensus", confidence: str = "moderate", only_types: set[str] | None = None
+    status: str = "consensus",
+    confidence: str = "moderate",
+    only_types: set[str] | None = None,
+    *,
+    with_number: bool = True,
+    unbacked_number: str | None = None,
 ) -> Callable[[LLMRequest[Any]], WriterDraft]:
-    """Writer response citing the strongest findings that appear in the prompt."""
+    """Writer response citing the strongest findings that appear in the prompt, inline, the way the
+    citation gate wants it. `with_number` quotes a number from the first cited finding's snippet;
+    `unbacked_number` adds a sentence whose number no finding contains (fails the gate)."""
 
     def respond(request: LLMRequest[Any]) -> WriterDraft:
         found = _FINDING.findall(request.user)
@@ -187,11 +206,20 @@ def writer_response(
         else:
             ids = [fid for fid, st, _ in found if st not in ("animal", "in_vitro", "preprint")]
         ids = ids[:3] or [found[0][0]]
+        why = f"More weekly sets produced more growth, with smaller gains at high volumes [{'; '.join(ids)}]."
+        if with_number:
+            for fid in ids:
+                if number := snippet_number(request, fid):
+                    why += f" One study reported a figure of {number} [{fid}]."
+                    break
+        protocol = "Spread your sets for each muscle across your 4 training days."
+        if unbacked_number:
+            protocol += f" Do {unbacked_number} sets per muscle per week [{ids[0]}]."
         return WriterDraft(
             status=status,  # type: ignore[arg-type]
-            recommendation="Aim for 10-20 hard sets per muscle per week.",
+            recommendation=f"Do more weekly sets per muscle, up to a moderate volume [{ids[0]}].",
             confidence=confidence,  # type: ignore[arg-type]
-            why="More weekly sets produced more growth, with smaller gains at high volumes.",
+            why=why,
             positions=[
                 {
                     "stance": "More weekly volume produces more hypertrophy",
@@ -202,7 +230,7 @@ def writer_response(
             ],
             what_would_change_this="Trials in trained women at high volumes.",
             applies_to_you="You are trained, so the trained-lifter trials apply.",
-            practical_protocol="Do 12-14 sets per muscle per week across 4 sessions.",
+            practical_protocol=protocol,
             whats_new=None,
             cited_finding_ids=ids,
         )

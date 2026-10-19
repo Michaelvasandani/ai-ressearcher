@@ -18,10 +18,10 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from pydantic import BaseModel
 
-from backend import llm, schemas
+from backend import citations, llm, schemas
 from backend.graph import budget, plan_review, routing, state, trace
 
-_STATE_MODULES: tuple[ModuleType, ...] = (schemas, llm, budget, plan_review, routing, state, trace)
+_STATE_MODULES: tuple[ModuleType, ...] = (schemas, citations, llm, budget, plan_review, routing, state, trace)
 
 
 def state_types() -> list[tuple[str, str]]:

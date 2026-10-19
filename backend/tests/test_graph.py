@@ -55,7 +55,7 @@ def test_happy_path_end_to_end(search_tool):
     assert r.outcome.status == "answered" and r.outcome.failure is None
     assert nodes(r) == [
         "intake", "planner", "dispatch", "researcher", "researcher", "researcher",
-        "review", "personalize", "position_mapper", "judge", "writer", "check_answer", "finalize",
+        "review", "personalize", "position_mapper", "judge", "writer", "validate_citations", "check_answer", "finalize",
     ]
     assert [s.index for s in r.trace] == list(range(len(r.trace)))
     assert {s.sub_question_id for s in researcher_steps(r)} == {"sq1", "sq2", "sq3"}
@@ -315,7 +315,7 @@ def test_writer_error_triggers_one_escalated_rewrite(search_tool, bad, error, sy
     assert error in r.answer_reviews[0].problems[0]
     assert r.outcome.status == ("answered" if synthesis else "degraded") and r.answer is not None
     assert (r.verdict is not None) == synthesis
-    assert [s.node for s in r.trace][-5:] == ["writer", "check_answer", "writer", "check_answer", "finalize"]
+    assert [s.node for s in r.trace][-7:] == ["writer", "validate_citations", "check_answer", "writer", "validate_citations", "check_answer", "finalize"]
 
 
 def test_writer_failing_twice_fails_cleanly(search_tool):

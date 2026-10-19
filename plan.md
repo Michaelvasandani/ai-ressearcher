@@ -146,12 +146,12 @@ class CoachAnswer(BaseModel):
 - [x] **Plan checkpoint (human in the loop):** use LangGraph `interrupt` so the user can approve or edit the research plan in the UI before searching. The run can wait for hours and resume from Redis.
 
 ### Phase 6: API with citations, streaming and traces (week 4)
-- [ ] `POST /research` returns a run ID immediately.
-- [ ] `GET /research/{id}` returns status, then the finished `CoachAnswer`.
-- [ ] `GET /research/{id}/events` streams progress events over SSE, so the interface is not a four-minute spinner.
-- [ ] **Citation validation:** every claim and every number (doses, effect sizes, percentages) must link to a real finding record that contains it, or the answer fails validation before it is returned.
-- [ ] `GET /research/{id}/trace` returns the full step log: which agent ran, what it received, what it produced, which tools it called, tokens, cost and latency per step.
-- [ ] **Time-travel debugging:** `POST /research/{id}/fork?from_step=N` with an override (prompt, model or tool result) replays from that checkpoint and returns a diff against the original answer.
+- [x] `POST /research` returns a run ID immediately.
+- [x] `GET /research/{id}` returns status, then the finished `CoachAnswer`.
+- [x] `GET /research/{id}/events` streams progress events over SSE, so the interface is not a four-minute spinner.
+- [x] **Citation validation:** every claim and every number (doses, effect sizes, percentages) must link to a real finding record that contains it, or the answer fails validation before it is returned.
+- [x] `GET /research/{id}/trace` returns the full step log: which agent ran, what it received, what it produced, which tools it called, tokens, cost and latency per step.
+- [x] **Time-travel debugging:** `POST /research/{id}/fork?from_step=N` with an override (prompt, model or tool result) replays from that checkpoint and returns a diff against the original answer.
 
 ### Phase 7: Evaluation (week 5)
 - [ ] **Golden set:** 30–50 questions with reference answers from ISSN / ACSM position stands and well-known meta-analyses.

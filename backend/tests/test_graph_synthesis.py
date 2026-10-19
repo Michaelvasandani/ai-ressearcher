@@ -78,7 +78,7 @@ def test_consensus_skips_the_debate_and_false_balance_is_downgraded(search_tool)
 
     assert r.outcome.status == "answered", r.outcome
     assert "advocate" not in nodes(r) and "debate_review" not in nodes(r)
-    assert nodes(r)[-6:] == ["personalize", "position_mapper", "judge", "writer", "check_answer", "finalize"]
+    assert nodes(r)[-7:] == ["personalize", "position_mapper", "judge", "writer", "validate_citations", "check_answer", "finalize"]
     assert llm.calls_for("advocate") == []
 
     pm = r.position_map
@@ -106,9 +106,9 @@ def test_contested_runs_the_debate_with_exactly_one_rebuttal_round(search_tool):
 
     assert r.position_map.status == "genuinely_contested" and len(r.position_map.positions) == 2
     assert [p.evidence_grade for p in r.position_map.positions] == ["high", "high"]
-    assert nodes(r)[-11:] == [
+    assert nodes(r)[-12:] == [
         "position_mapper", "advocate", "advocate", "debate_review", "advocate", "advocate", "debate_review",
-        "judge", "writer", "check_answer", "finalize",
+        "judge", "writer", "validate_citations", "check_answer", "finalize",
     ]
     # Each position argued exactly twice: an opening, then one rebuttal.
     rounds = sorted((t.position, t.round) for t in r.debate)
@@ -270,5 +270,5 @@ def test_judge_failure_falls_back_to_the_position_map(search_tool):
 
 def test_mapper_failure_falls_back_to_the_writer(search_tool):
     r = run(contested_llm(search_tool, position_mapper=LLMError("overloaded")), search_tool)
-    assert nodes(r)[-5:] == ["personalize", "position_mapper", "writer", "check_answer", "finalize"]
+    assert nodes(r)[-6:] == ["personalize", "position_mapper", "writer", "validate_citations", "check_answer", "finalize"]
     assert r.position_map is None and "mapping_skipped" in kinds(r) and r.answer is not None

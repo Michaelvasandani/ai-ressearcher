@@ -9,22 +9,25 @@ description = "Evidence Coach: multi-agent, citation-first training and nutritio
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.15",
+    "fastapi>=0.115",
     "httpx>=0.27",
     "langgraph>=1.2,<2",
     "langgraph-checkpoint-postgres>=3.0,<4",
     "psycopg[binary]>=3.2",
     "psycopg-pool>=3.2",
     "pydantic>=2.7",
+    "pyjwt>=2.8",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "uvicorn>=0.30"]
 
 # The package is imported as `backend` (e.g. `from backend.schemas import Finding`)
 # so the repo root can also import it directly (Vercel functions, evals/).
 [tool.setuptools]
 package-dir = { "backend" = "." }
-packages = ["backend", "backend.agents", "backend.graph", "backend.store", "backend.tools"]
+packages = ["backend", "backend.agents", "backend.api", "backend.graph", "backend.store", "backend.tools"]
 
 [tool.setuptools.package-data]
 "backend.tools" = ["fixtures/*.json"]

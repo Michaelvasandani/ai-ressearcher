@@ -28,11 +28,23 @@ class RunRecord(Record):
     outcome: dict[str, Any] | None = None  # RunOutcome as JSON
     cost_usd: float = 0.0
     error: str | None = None
+    budget: dict[str, Any] | None = None  # Budget as JSON: the worker starts the graph from the record
+    # Execution (Phase 6): one worker at a time holds the lease; an expired lease means the worker
+    # died (or hit the platform time limit) and the reaper may hand the run to another one.
+    lease_owner: str | None = None
+    lease_expires_at: datetime | None = None
+    attempts: int = 0  # advances that ended in an error (bounded automatic retries)
+    pending_decision: dict[str, Any] | None = None  # a plan decision waiting for the worker
+    # Time-travel: a fork records its parent and what it changed (graph.fork.ForkInfo as JSON).
+    parent_run_id: str | None = None
+    fork: dict[str, Any] | None = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
 
-EventType = Literal["run_started", "run_resumed", "step", "plan_ready", "run_finished", "run_error"]
+EventType = Literal[
+    "run_started", "run_resumed", "step", "plan_ready", "plan_decided", "run_finished", "run_error", "progress"
+]
 
 
 class RunEvent(Record):

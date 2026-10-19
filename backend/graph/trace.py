@@ -44,6 +44,7 @@ class TraceStep(Record):
     node: str  # graph node name
     agent: str | None = None  # specialist that ran, or "supervisor"
     sub_question_id: str | None = None
+    position_id: str | None = None  # advocate steps: which position ("P1", "P2") argued
     attempt: int = 1  # research pass or writer attempt
     model: str | None = None
     escalated: bool = False
@@ -100,6 +101,11 @@ class StepTimer:
         **kw: Any,
     ) -> TraceStep:
         calls = list(llm_calls or [])
+        actual = calls[-1].model if calls else None
+        if actual and kw.get("model") and actual != kw["model"] and not calls[-1].replayed:
+            # A time-travel override swapped the model: the step shows what actually ran.
+            kw["model"] = actual
+            kw["route_reason"] = f"{kw.get('route_reason') or 'routed'}; model overridden to {actual}"
         if isinstance(output, (BaseModel, list)):
             output = {"value": dump(output)} if isinstance(output, list) else dump(output)
         return TraceStep(

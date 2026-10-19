@@ -195,8 +195,10 @@ class MeteredLLM:
         *,
         ledger: CallLedger | None = None,
         run_id: str | None = None,
+        transform: Callable[[LLMRequest[Any]], LLMRequest[Any]] | None = None,
     ):
         self.inner = inner
+        self.transform = transform  # a time-travel fork's override (prompt addendum / model)
         self.allowance = allowance
         self.clock = clock
         self.ledger = ledger if run_id else None
@@ -259,6 +261,8 @@ class MeteredLLM:
             log.warning("call ledger write failed for run %s", self.run_id, exc_info=True)
 
     def complete(self, request: LLMRequest[T]) -> LLMResult[T]:
+        if self.transform is not None:
+            request = self.transform(request)
         key = call_key(request) if self.ledger is not None else None
         if key is not None and (replayed := self._replay(key, request)) is not None:
             with self._lock:

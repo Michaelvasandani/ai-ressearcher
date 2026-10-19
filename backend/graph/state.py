@@ -13,6 +13,7 @@ from typing import Annotated, Literal, TypedDict
 
 from pydantic import Field
 
+from backend.citations import CitationReport
 from backend.graph.budget import Allowance, Budget, BudgetKind, Spend, add_spend
 from backend.graph.plan_review import PlanDecision
 from backend.graph.routing import Route
@@ -210,6 +211,7 @@ FailureReason = Literal[
     "intake_failed",
     "planner_failed",
     "writer_failed",
+    "citations_failed",  # the answer's claims / numbers are not backed by its cited findings
     "internal_error",
 ]
 
@@ -264,6 +266,7 @@ class RunState(TypedDict, total=False):
     debate_rounds: int  # rounds run so far; never more than DEBATE_ROUNDS
     reviews: Annotated[list[ReviewReport], operator.add]
     answer_reviews: Annotated[list[AnswerReview], operator.add]
+    citation_reports: Annotated[list[CitationReport], operator.add]  # one per writer draft
     send_backs_used: int
     writer_attempts: int
     writer_route: Route | None  # set by the supervisor for an escalated rewrite

@@ -6,12 +6,16 @@ decide status, confidence and positions, and the writer only explains them.
 
 Code, not the model, guarantees: every cited id is a real finding id, the
 disclaimer is present, and a contested answer shows at least two positions.
+Inline `[finding id]` citations are renumbered to `[n]` markers pointing into
+`cited_finding_ids`; `citations.validate_answer` then checks every claim
+and number against the cited findings (the graph's citation gate).
 """
 
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
+from backend.citations import number_citations
 from backend.llm import LLMClient, LLMRequest
 from backend.schemas import (
     DISCLAIMER,
@@ -63,8 +67,15 @@ question and profile, and a list of findings extracted from studies, each with a
 a verbatim snippet. Answer only from these findings.
 
 Rules:
-- Every factual claim and every number (sets, grams, percentages, effect sizes) must come from a \
-finding. Cite the finding ids that support the answer in cited_finding_ids, and in each \
+- Every factual claim and every number (sets, reps, grams, percentages, effect sizes, durations) \
+must come from a finding, and is checked by code against the findings you cite. Cite inline: put \
+the exact finding id in square brackets at the end of the sentence it supports, e.g. \
+"... about 0.37% more growth per weekly set [sq1:PMID:123]." Several ids go in one bracket, \
+separated by semicolons. Every sentence of recommendation, why and whats_new needs a citation; \
+in the other fields, any sentence with a number needs one. Use a number only if a finding you \
+cite in that sentence states it (write numbers as digits, as the finding gives them; do not \
+convert units, add up studies or compute new numbers). Numbers from the user's own profile or \
+question need no citation. Also list the ids you rely on in cited_finding_ids, and in each \
 position's supporting_findings. Use the exact ids given; never invent one.
 - Weigh evidence by grade: meta-analyses and well-powered trials over single small trials. \
 Preprints and animal studies may support a point but never carry the recommendation alone.
@@ -145,6 +156,7 @@ class WriterAgent:
     def __init__(self, llm: LLMClient, model: str | None = None):
         self.llm = llm
         self.model = model
+        self.invented_ids: list[str] = []  # ids the last draft cited that are not findings (dropped)
 
     def run(
         self,
@@ -185,20 +197,31 @@ class WriterAgent:
             if status == "genuinely_contested" and len(final_positions) < 2:
                 status = "leaning"
 
-        cited = [i for i in dict.fromkeys(draft.cited_finding_ids) if i in known]
-        if not cited:
-            cited = list(dict.fromkeys(i for p in final_positions for i in p.supporting_findings))
+        # Inline [finding id] citations become numbered [n] markers; cited_finding_ids is the
+        # reference list ([n] -> cited_finding_ids[n - 1]), then the other ids the answer relies on.
+        texts, cited, self.invented_ids = number_citations(
+            {
+                "recommendation": draft.recommendation,
+                "why": draft.why,
+                "what_would_change_this": draft.what_would_change_this,
+                "applies_to_you": draft.applies_to_you,
+                "practical_protocol": draft.practical_protocol,
+                "whats_new": draft.whats_new or None,
+            },
+            known,
+            extra_ids=[*draft.cited_finding_ids, *(i for p in final_positions for i in p.supporting_findings)],
+        )
 
         return CoachAnswer(
             status=status,
-            recommendation=draft.recommendation,
+            recommendation=texts["recommendation"] or draft.recommendation,
             confidence=confidence,
-            why=draft.why,
+            why=texts["why"] or draft.why,
             positions=final_positions,
-            what_would_change_this=draft.what_would_change_this,
-            applies_to_you=draft.applies_to_you,
-            practical_protocol=draft.practical_protocol,
-            whats_new=draft.whats_new or None,
+            what_would_change_this=texts["what_would_change_this"] or draft.what_would_change_this,
+            applies_to_you=texts["applies_to_you"] or draft.applies_to_you,
+            practical_protocol=texts["practical_protocol"] or draft.practical_protocol,
+            whats_new=texts["whats_new"] or None,
             cited_finding_ids=cited,
             disclaimer=DISCLAIMER,
         )

@@ -12,7 +12,7 @@
                                                     ^              |
                                                     +==Send x N====+  (exactly one rebuttal round)
 
-            writer -> check_answer --rewrite (once)--> writer
+            writer -> validate_citations -> check_answer --rewrite (once)--> writer
                            |
                            v
                         finalize -> END
@@ -40,6 +40,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, Send
 
+from backend.citations import CitationReport
 from backend.graph.budget import Budget, Spend
 from backend.graph.nodes import GraphDeps, Nodes
 from backend.graph.plan_review import PlanApprovalRequest, PlanDecision
@@ -178,6 +179,7 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
     g.add_node("researcher", nodes.researcher)
     g.add_node("review", nodes.review)
     g.add_node("writer", nodes.writer)
+    g.add_node("validate_citations", nodes.validate_citations)
     g.add_node("check_answer", nodes.check_answer)
     g.add_node("finalize", nodes.finalize)
 
@@ -190,7 +192,8 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
     g.add_edge("researcher", "review")
     g.add_conditional_edges("review", after_review, ["researcher", SYNTHESIS_ENTRY, "finalize"])
     _wire_synthesis(g, deps)
-    g.add_edge("writer", "check_answer")
+    g.add_edge("writer", "validate_citations")
+    g.add_edge("validate_citations", "check_answer")
     g.add_conditional_edges("check_answer", after_check, ["writer", "finalize"])
     g.add_edge("finalize", END)
     return g.compile(checkpointer=checkpointer)
@@ -201,7 +204,7 @@ def build_graph(deps: GraphDeps, *, checkpointer: Any = None) -> Any:
 
 class RunResult(Record):
     run_id: str
-    # None only while the run waits at the plan checkpoint (`awaiting_approval` is set).
+    # None while the run waits at the plan checkpoint (`awaiting_approval` is set) or is still running.
     outcome: RunOutcome | None
     awaiting_approval: PlanApprovalRequest | None = None
     answer: CoachAnswer | None = None
@@ -217,15 +220,18 @@ class RunResult(Record):
     verdict: Verdict | None = None
     reviews: list[ReviewReport] = []
     answer_reviews: list[AnswerReview] = []
+    citation_reports: list[CitationReport] = []
     spend: Spend = Spend()
     trace: list[TraceStep] = []
 
     @classmethod
     def from_state(
-        cls, run_id: str, state: dict[str, Any], awaiting: PlanApprovalRequest | None = None
+        cls, run_id: str, state: dict[str, Any], awaiting: PlanApprovalRequest | None = None, *, running: bool = False
     ) -> "RunResult":
+        """`running`: the run is mid-way (a worker slice ended, or it is executing now), so a
+        missing outcome is expected rather than a failure."""
         outcome = state.get("outcome")
-        if outcome is None and awaiting is None:
+        if outcome is None and awaiting is None and not running:
             outcome = RunOutcome(
                 status="failed",
                 message="run ended without an outcome",
@@ -248,6 +254,7 @@ class RunResult(Record):
             verdict=state.get("verdict"),
             reviews=state.get("reviews") or [],
             answer_reviews=state.get("answer_reviews") or [],
+            citation_reports=state.get("citation_reports") or [],
             spend=state.get("spend") or Spend(),
             trace=state.get("trace") or [],
         )

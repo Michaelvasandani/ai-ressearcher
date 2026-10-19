@@ -59,6 +59,8 @@ really supports a different answer.
 - supporting_findings: the exact ids of the findings that support the stance. Each finding goes \
 in at most one position. Leave out findings that bear on none of the answers.
 - best_counterargument: the strongest point against the position, drawn from the other findings.
+- Use a number (sets, grams, percentages, effect sizes) in a stance or counterargument only as a \
+finding states it: code checks every number against the findings.
 
 status:
 - consensus: the credible evidence points one way.
