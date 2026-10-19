@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/* Dark is the default; [data-theme="light"] on <html> inverts it. Black, white and grays only. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root,
+[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-2: #171717;
+  --border: #262626;
+  --border-strong: #404040;
+  --fg: #ffffff;
+  --fg-2: #e5e5e5;
+  --muted: #a3a3a3;
+  --subtle: #737373;
+  --invert-bg: #ffffff;
+  --invert-fg: #000000;
+  --overlay: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface-2: #f5f5f5;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --fg: #000000;
+  --fg-2: #171717;
+  --muted: #525252;
+  --subtle: #737373;
+  --invert-bg: #000000;
+  --invert-fg: #ffffff;
+  --overlay: rgb(0 0 0 / 0.25);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-invert: var(--invert-bg);
+  --color-invert-fg: var(--invert-fg);
+  --color-overlay: var(--overlay);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* The whole type scale: 13 / 15 / 18 / 24. */
+  --text-xs: 13px;
+  --text-xs--line-height: 18px;
+  --text-sm: 15px;
+  --text-sm--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+
+  --animate-fade-in: fade-in 240ms ease-out both;
+  --animate-slide-in: slide-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+  --animate-slide-up: slide-up 200ms ease-out both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@layer base {
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  border-color: var(--border);
+}
+
+::selection {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+:focus-visible {
+  outline: 1px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.pulse {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* Markdown inside the answer card. */
+.prose-mono p { margin: 0; }
+.prose-mono p + p { margin-top: 8px; }
+.prose-mono strong { font-weight: 600; color: var(--fg); }
+.prose-mono ul { list-style: none; padding: 0; margin: 8px 0 0; }
+.prose-mono ul > li { position: relative; padding-left: 16px; }
+.prose-mono ul > li + li { margin-top: 4px; }
+.prose-mono ul > li::before { content: "–"; position: absolute; left: 0; color: var(--subtle); }
+.prose-mono ol { padding-left: 20px; margin: 8px 0 0; list-style: decimal; }
+.prose-mono a:not([data-cite]) { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+
+/* Scrollbars as hairlines. */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

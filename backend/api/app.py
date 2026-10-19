@@ -197,6 +197,8 @@ def create_app(services: Services | None = None) -> FastAPI:
         if record.status == "completed":
             view.answer = result.answer
             view.outcome = result.outcome
+            cited = result.answer.all_cited_ids() if result.answer else None
+            view.findings = [f for f in result.findings if cited is None or f.id in cited]
             if view.fork is not None:
                 parent = s.runner.get(view.fork.parent_run_id)
                 if parent is not None:

@@ -269,7 +269,7 @@ plan.md
 - [ ] A **killed process resumes** from where it stopped, with no duplicate spend.
 - [ ] **Every run has a viewable step-by-step trace**, and any step can be forked and diffed.
 - [ ] The eval suite reports agreement, debate calibration and faithfulness on the golden set, and CI enforces a floor.
-- [ ] The chat UI streams progress live, renders both sides and citations, and works on mobile and desktop in both themes.
+- [x] The chat UI streams progress live, renders both sides and citations, and works on mobile and desktop in both themes.
 
 ---
 

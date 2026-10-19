@@ -185,6 +185,11 @@ def test_post_returns_a_run_id_at_once_then_the_answer(make_api, search_tool):
     assert done["citations"]["ok"] is True and done["citations"]["numbers_checked"] >= 1
     assert done["spend"]["cost_usd"] > 0 and done["steps"] == 14
     assert len(done["sub_questions"]) == 3
+    # The UI's citation chips: [n] -> cited_finding_ids[n-1] -> one of the returned findings.
+    by_id = {f["id"]: f for f in done["findings"]}
+    assert answer["cited_finding_ids"] and set(answer["cited_finding_ids"]) <= set(by_id)
+    first = by_id[answer["cited_finding_ids"][0]]
+    assert first["study_type"] and first["source_url"] and first["published"]
 
 
 def test_unknown_and_foreign_runs_are_404(make_api):
@@ -394,6 +399,7 @@ def test_answer_failing_citation_check_twice_is_not_returned(make_api, search_to
     assert done["outcome"]["failure"]["reason"] == "citations_failed"
     assert done["citations"]["ok"] is False
     assert any(i["number"] == "17" for i in done["citations"]["issues"])
+    assert done["findings"]  # no answer: every finding is returned so the evidence can still be shown
     messages = [e["data"]["message"] for e in sse(api, run_id) if e["event"] == "step"]
     assert "Answer sent back for one rewrite" in messages
     assert any(m.startswith("Citations: 1 problem") for m in messages)

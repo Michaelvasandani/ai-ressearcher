@@ -13,7 +13,7 @@ from backend.graph.fork import AnswerDiff, ForkInfo
 from backend.graph.plan_review import PlanApprovalRequest
 from backend.graph.state import RunOutcome
 from backend.graph.trace import TraceStep
-from backend.schemas import CoachAnswer, SubQuestion, UserProfile
+from backend.schemas import CoachAnswer, Finding, SubQuestion, UserProfile
 from backend.store.models import Conversation, RunStatus
 
 
@@ -52,6 +52,9 @@ class RunView(BaseModel):
     answer: CoachAnswer | None = None
     outcome: RunOutcome | None = None
     citations: CitationReport | None = None  # the citation gate's report on the final draft
+    # Completed runs: the findings the answer cites (for the UI's citation chips), or every
+    # finding when there is no answer (e.g. citations_failed), so the evidence is still shown.
+    findings: list[Finding] = Field(default_factory=list)
     spend: Spend = Field(default_factory=Spend)
     steps: int = 0
     error: str | None = None
