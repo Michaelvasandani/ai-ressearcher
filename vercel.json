@@ -11,6 +11,6 @@
     { "source": "/(.*)", "destination": "/api/index" }
   ],
   "crons": [
-    { "path": "/internal/cron/reap", "schedule": "* * * * *" }
+    { "path": "/internal/cron/reap", "schedule": "0 4 * * *" }
   ]
 }

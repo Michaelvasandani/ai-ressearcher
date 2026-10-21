@@ -1,0 +1,7 @@
+# Frontend project (Root Directory = frontend/). The CLI uploads by this file, not .gitignore.
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+screenshots/
