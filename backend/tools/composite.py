@@ -120,14 +120,16 @@ class CompositeSearchTool:
         if checker is None:
             return records
         unverified: list[str] = []
+        to_check = [r.doi for r in records if r.doi and not r.retracted]
+        results = checker.check_many(to_check) if to_check and self.clock() < deadline else {}
 
         def check(r: StudyRecord) -> StudyRecord:
             if r.retracted or not r.doi:
                 return r
-            if self.clock() >= deadline:
+            result = results.get(r.doi)
+            if result is None:  # out of time before the check
                 unverified.append(r.source_id)
                 return r
-            result = checker.check(r.doi)
             if not result.checked:
                 unverified.append(r.source_id)
                 return r
@@ -136,7 +138,7 @@ class CompositeSearchTool:
                 update |= {"retracted": True, "retraction_notice": result.notice}
             return r.model_copy(update=update)
 
-        out = self._map(check, records)
+        out = [check(r) for r in records]
         if unverified:
             notes.append(f"crossref retraction check unavailable for {len(unverified)} record(s)")
         return out

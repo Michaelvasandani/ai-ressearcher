@@ -8,7 +8,7 @@ from backend.config import SearchSettings
 from backend.tools import europepmc, pubmed, retraction, sportrxiv
 from backend.tools.composite import CompositeSearchTool
 from backend.tools.europepmc import EuropePMCSearch
-from backend.tools.http import USER_AGENT, HttpClient
+from backend.tools.http import USER_AGENT, HttpClient, RateLimiter
 from backend.tools.pubmed import PubMedSearch
 from backend.tools.retraction import CrossrefRetractionChecker
 from backend.tools.search import FixtureSearchTool, SearchTool
@@ -30,6 +30,7 @@ def live_http(settings: SearchSettings, transport: httpx.BaseTransport | None = 
             retraction.HOST: 10.0,  # Crossref polite pool
             sportrxiv.HOST: 5.0,
         },
+        concurrency={retraction.HOST: 3},  # Crossref polite pool: X-Concurrency-Limit 3
         **kw,
     )
 
@@ -43,7 +44,9 @@ def build_live_search_tool(settings: SearchSettings, http: HttpClient | None = N
     return CompositeSearchTool(
         sources,
         full_text=epmc,
-        retraction=CrossrefRetractionChecker(http, mailto=settings.contact_email),
+        retraction=CrossrefRetractionChecker(
+            http, mailto=settings.contact_email, list_limiter=RateLimiter(retraction.LIST_QUERIES_PER_SECOND, sleep=http.sleep)
+        ),
         time_budget_s=settings.time_budget_s,
     )
 

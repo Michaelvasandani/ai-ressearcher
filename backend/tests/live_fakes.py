@@ -99,9 +99,10 @@ class FakeAPIs:
             if doi in self.RETRACTED_WORKS:
                 return json_file(self.RETRACTED_WORKS[doi])
             return httpx.Response(200, json={"status": "ok", "message": {"DOI": doi, "type": "journal-article"}})
-        if key == "crossref_updates":
-            doi = request.url.params["filter"].split("updates:", 1)[1]
-            return json_file(self.RETRACTION_NOTICES.get(doi, "crossref_updates_empty.json"))
+        if key == "crossref_updates":  # filters of one name are ORed: updates:a,updates:b
+            dois = [f.split("updates:", 1)[1] for f in request.url.params["filter"].split(",")]
+            items = [i for d in dois if d in self.RETRACTION_NOTICES for i in json_file(self.RETRACTION_NOTICES[d]).json()["message"]["items"]]
+            return httpx.Response(200, json={"status": "ok", "message": {"total-results": len(items), "items": items}})
         if key == "osf":
             return json_file("osf_sportrxiv_preprints.json")
         return httpx.Response(404)

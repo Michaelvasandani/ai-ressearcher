@@ -2,6 +2,7 @@
 
 Every live source goes through `HttpClient.get`, which
 - waits for its host's rate limiter (thread-safe, shared by parallel researchers),
+- holds at most its host's concurrency limit of requests in flight (Crossref: 3),
 - retries 429 / 5xx with exponential backoff (honouring Retry-After), up to a cap,
 - turns transport failures into typed `FetchError`s.
 
@@ -85,6 +86,7 @@ class HttpClient:
         backoff_base: float = 0.5,
         max_backoff: float = 8.0,
         rate_limits: Mapping[str, float] | None = None,  # host -> requests/second
+        concurrency: Mapping[str, int] | None = None,  # host -> max requests in flight
         sleep: Callable[[float], None] = time.sleep,
         jitter: Callable[[], float] = random.random,
     ):
@@ -96,6 +98,7 @@ class HttpClient:
         self.sleep = sleep
         self.jitter = jitter
         self.limiters = {host: RateLimiter(rps, sleep=sleep) for host, rps in (rate_limits or {}).items()}
+        self.slots = {host: threading.BoundedSemaphore(n) for host, n in (concurrency or {}).items()}
         self.requests: list[str] = []  # every attempted URL, for tests and debugging
 
     def _backoff(self, attempt: int, response: httpx.Response | None) -> float:
@@ -107,6 +110,7 @@ class HttpClient:
         """GET with retries. Returns a 2xx response or raises FetchError."""
         host = httpx.URL(url).host
         limiter = self.limiters.get(host)
+        slots = self.slots.get(host)
         last: FetchError | None = None
         for attempt in range(self.max_retries + 1):
             if limiter:
@@ -114,7 +118,11 @@ class HttpClient:
             self.requests.append(url)
             response: httpx.Response | None = None
             try:
-                response = self.client.get(url, params=params, timeout=self.timeout)
+                if slots:  # held for the request only, not during backoff
+                    with slots:
+                        response = self.client.get(url, params=params, timeout=self.timeout)
+                else:
+                    response = self.client.get(url, params=params, timeout=self.timeout)
             except httpx.TimeoutException as e:
                 last = FetchError("timed_out", f"{host}: timed out ({type(e).__name__})")
             except httpx.HTTPError as e:

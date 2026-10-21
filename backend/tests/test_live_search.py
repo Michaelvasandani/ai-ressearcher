@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 
 import httpx
@@ -190,6 +193,21 @@ def test_full_text_fetch_paths():
     assert slow.fetch_full_text("PMC9000002") == (None, "timed_out")
 
 
+
+def test_full_text_cached_per_pmcid_but_not_transient_failures():
+    apis = FakeAPIs()
+    epmc = EuropePMCSearch(bare_http(apis))
+    first = epmc.fetch_full_text("PMC9000002")
+    assert epmc.fetch_full_text("PMC9000002") is first
+    assert epmc.fetch_full_text("PMC1234567") == epmc.fetch_full_text("PMC1234567") == (None, "not_open_access")
+    assert len(apis.calls("fulltext")) == 2  # one per PMCID
+    slow_apis = FakeAPIs({"fulltext": [httpx.ReadTimeout("slow")]})
+    slow = EuropePMCSearch(bare_http(slow_apis, max_retries=0))
+    slow.fetch_full_text("PMC9000002")
+    slow.fetch_full_text("PMC9000002")
+    assert len(slow_apis.calls("fulltext")) == 2  # a timeout is retried on the next call
+
+
 # --- JATS ----------------------------------------------------------------------
 
 
@@ -250,6 +268,16 @@ def test_crossref_update_to_notice_and_clean_record():
     assert retraction_in_updates(json_file("crossref_updates_retraction.json").json()["message"]["items"], "10.5555/other") is None
 
 
+def test_crossref_notices_are_batched_into_one_list_query():
+    apis = FakeAPIs()
+    checker = CrossrefRetractionChecker(bare_http(apis))
+    results = checker.check_many(["10.5555/EC.2023.003", "10.5555/ec.2022.002", "10.5555/ec.2024.006"])
+    assert results["10.5555/EC.2023.003"].retracted and not results["10.5555/ec.2022.002"].retracted
+    assert results["10.5555/ec.2024.006"].retracted  # from its work record, no notices query needed
+    [query] = apis.calls("crossref_updates")
+    assert query.url.params["filter"] == "updates:10.5555/ec.2023.003,updates:10.5555/ec.2022.002"
+
+
 def test_crossref_relation_and_failure_paths():
     relation = FakeAPIs({"crossref_work": [httpx.Response(200, json={"message": {"relation": {"is-retracted-by": [{"id": "10.5555/n"}]}}})]})
     assert CrossrefRetractionChecker(bare_http(relation)).check("10.5555/x").retracted
@@ -261,7 +289,20 @@ def test_crossref_relation_and_failure_paths():
     limited = CrossrefRetractionChecker(bare_http(FakeAPIs({"crossref_work": [httpx.Response(429)]}), max_retries=0))
     result = limited.check("10.5555/x")
     assert not result.checked and result.error.startswith("rate_limited")
-    assert "10.5555/x" not in limited._cache  # failures are not cached
+    assert "10.5555/x" not in limited._cache  # failures are not cached for good
+
+
+def test_crossref_failure_reused_until_ttl():
+    now = [0.0]
+    apis = FakeAPIs({"crossref_work": [httpx.Response(429)]})
+    checker = CrossrefRetractionChecker(bare_http(apis, max_retries=0), failure_ttl_s=60.0, clock=lambda: now[0])
+    first = checker.check("10.5555/x")
+    assert not first.checked
+    assert checker.check("10.5555/x") is first  # within the TTL: no new request
+    assert len(apis.calls("crossref_work")) == 1
+    now[0] = 61.0
+    checker.check("10.5555/x")
+    assert len(apis.calls("crossref_work")) == 2  # expired: checked again
 
 
 # --- Ranking, dedupe, caps -------------------------------------------------------
@@ -445,6 +486,24 @@ def test_rate_limiter_spaces_requests():
     for _ in range(3):
         limiter.wait()
     assert sleeps == [0.5, 1.0]  # slots at 0, 0.5, 1.0
+
+
+def test_concurrency_limit_caps_requests_in_flight():
+    lock, state = threading.Lock(), {"now": 0, "max": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        with lock:
+            state["now"] += 1
+            state["max"] = max(state["max"], state["now"])
+        time.sleep(0.02)
+        with lock:
+            state["now"] -= 1
+        return httpx.Response(200)
+
+    http = HttpClient(httpx.Client(transport=httpx.MockTransport(handler)), concurrency={"api.crossref.org": 2})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda i: http.get(f"https://api.crossref.org/works/{i}"), range(8)))
+    assert state["max"] == 2
 
 
 def test_live_http_applies_ncbi_limit_by_api_key():

@@ -19,6 +19,7 @@ Expected failures never raise: they come back in SearchStatus.
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import BaseModel, ConfigDict
 
@@ -233,7 +234,9 @@ class ResearcherAgent:
 
     def run(self, sub_question: SubQuestion, profile: UserProfile | None = None) -> ResearchResult:
         queries = sub_question.search_terms[: self.max_searches]
-        responses = [self._search(q) for q in queries]
+        # Searches are independent and mostly wait on the network, so run them together.
+        with ThreadPoolExecutor(max_workers=max(len(queries), 1)) as pool:
+            responses = list(pool.map(self._search, queries))
         status = SearchStatus(
             sub_question_id=sub_question.id,
             state="no_results",

@@ -10,6 +10,7 @@ Docs: https://europepmc.org/RestfulWebService
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
@@ -107,6 +108,8 @@ def parse_hit(hit: dict[str, Any], retrieved_at: datetime) -> StudyRecord | None
         retraction_notice="Europe PMC publication type: Retracted Publication" if retracted else None,
     )
 
+FULL_TEXT_CACHE_SIZE = 500  # parsed articles kept in memory per process
+
 
 class EuropePMCSearch:
     """`SearchTool` over Europe PMC search, plus the full-text fetcher the composite uses."""
@@ -124,6 +127,9 @@ class EuropePMCSearch:
         self.email = email
         self.policy = policy
         self.today = today
+        # Full text by PMCID, shared by parallel researchers; transient failures are not cached.
+        self._full_text: dict[str, tuple[FullTextSections | None, str]] = {}
+        self._lock = threading.Lock()
 
     def search(self, query: str, max_results: int = 10) -> SearchResponse:
         params: dict[str, Any] = {
@@ -153,6 +159,18 @@ class EuropePMCSearch:
         `why` is "ok", "not_open_access" (404: no OA full text, i.e. paywalled for
         us), "no_results_section", or a FetchError kind.
         """
+        with self._lock:
+            if pmcid in self._full_text:
+                return self._full_text[pmcid]
+        result = self._fetch_full_text(pmcid)
+        if result[1] in ("ok", "not_open_access", "no_results_section"):
+            with self._lock:
+                self._full_text[pmcid] = result
+                if len(self._full_text) > FULL_TEXT_CACHE_SIZE:
+                    self._full_text.pop(next(iter(self._full_text)))  # drop the oldest
+        return result
+
+    def _fetch_full_text(self, pmcid: str) -> tuple[FullTextSections | None, str]:
         try:
             resp = self.http.get(full_text_url(pmcid))
         except FetchError as e:
